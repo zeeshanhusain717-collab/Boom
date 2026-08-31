@@ -1,0 +1,276 @@
+name: Build Zeeshan APK
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Zeeshan APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 01 - Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 02 - Setup JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: "17"
+          distribution: temurin
+
+      - name: 03 - Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 04 - Install Android SDK 34
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: 05 - Create directories
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/java/com/zeeshan/app
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/drawable
+          mkdir -p app/src/main/res/mipmap-anydpi-v26
+
+      - name: 06 - Write gradle.properties
+        run: |
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          org.gradle.daemon=false
+          EOF
+
+      - name: 07 - Write settings.gradle
+        run: |
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories { google(); mavenCentral() }
+          }
+          rootProject.name = "Zeeshan"
+          include(":app")
+          EOF
+
+      - name: 08 - Write root build.gradle
+        run: |
+          cat > build.gradle <<'EOF'
+          plugins {
+              id "com.android.application" version "8.2.2" apply false
+              id "org.jetbrains.kotlin.android" version "1.9.22" apply false
+          }
+          EOF
+
+      - name: 09 - Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.2.2"
+
+      - name: 10 - Write app/build.gradle
+        run: |
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id "com.android.application"
+              id "org.jetbrains.kotlin.android"
+          }
+          android {
+              namespace "com.zeeshan.app"
+              compileSdk 34
+              defaultConfig {
+                  applicationId "com.zeeshan.app"
+                  minSdk 26
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+              buildTypes {
+                  release { minifyEnabled false }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+              kotlinOptions { jvmTarget = "17" }
+          }
+          dependencies {
+              implementation "androidx.core:core-ktx:1.13.1"
+              implementation "androidx.appcompat:appcompat:1.7.0"
+              implementation "com.google.android.material:material:1.12.0"
+          }
+          EOF
+
+      - name: 11 - Write strings.xml
+        run: |
+          cat > app/src/main/res/values/strings.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">Zeeshan</string>
+          </resources>
+          EOF
+
+      - name: 12 - Create Icon XML
+        run: |
+          cat > app/src/main/res/drawable/app_icon.xml <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="100"
+              android:viewportHeight="100">
+              <path
+                  android:fillColor="#000000"
+                  android:pathData="M0,0h100v100H0z"/>
+              <path
+                  android:fillColor="#FFFFFF"
+                  android:pathData="M25,25 h50 v15 h-50 z"/>
+              <path
+                  android:fillColor="#FFFFFF"
+                  android:pathData="M65,40 l-30,30 h15 l30,-30 z"/>
+              <path
+                  android:fillColor="#FFFFFF"
+                  android:pathData="M25,70 h50 v15 h-50 z"/>
+          </vector>
+          EOF
+
+      - name: 13 - Write ic_launcher.xml
+        run: |
+          cat > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/black" />
+              <foreground android:drawable="@drawable/app_icon" />
+          </adaptive-icon>
+          EOF
+
+      - name: 14 - Write colors.xml
+        run: |
+          cat > app/src/main/res/values/colors.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="black">#000000</color>
+              <color name="white">#FFFFFF</color>
+          </resources>
+          EOF
+
+      - name: 15 - Write AndroidManifest.xml
+        run: |
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <application
+                  android:allowBackup="false"
+                  android:label="@string/app_name"
+                  android:supportsRtl="true"
+                  android:icon="@mipmap/ic_launcher"
+                  android:roundIcon="@mipmap/ic_launcher"
+                  android:theme="@style/Theme.Material3.Light.NoActionBar">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+      - name: 16 - Write MainActivity.kt
+        run: |
+          cat > app/src/main/java/com/zeeshan/app/MainActivity.kt <<'EOF'
+          package com.zeeshan.app
+
+          import android.annotation.SuppressLint
+          import android.os.Bundle
+          import android.webkit.WebView
+          import android.webkit.WebViewClient
+          import androidx.appcompat.app.AppCompatActivity
+
+          class MainActivity : AppCompatActivity() {
+              @SuppressLint("SetJavaScriptEnabled")
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  val webView = WebView(this)
+                  webView.settings.javaScriptEnabled = true
+                  webView.webViewClient = WebViewClient()
+
+                  val htmlContent = """
+                      <!DOCTYPE html>
+                      <html lang="hi">
+                      <head>
+                          <meta charset="UTF-8">
+                          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                          <title>Zeeshan App</title>
+                          <style>
+                              body { font-family: Arial, sans-serif; padding: 20px; background-color: #f9f9f9; }
+                              .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+                              input { padding: 8px; font-size: 16px; width: 60%; border: 1px solid #ccc; border-radius: 4px; }
+                              .main-btn { padding: 8px 15px; font-size: 16px; cursor: pointer; background-color: #007BFF; color: white; border: none; border-radius: 4px; margin-left: 5px; }
+                              .dynamic-btn { display: block; width: 100%; margin-top: 10px; padding: 10px; font-size: 16px; background-color: #e0e0e0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; text-align: left; }
+                          </style>
+                      </head>
+                      <body>
+                          <div class="container">
+                              <h2>नाम आधारित बटन जनरेटर</h2>
+                              <input type="text" id="nameInput" placeholder="नाम लिखें (जैसे: तारा)">
+                              <button class="main-btn" onclick="addNewButton()">बटन जोड़ें</button>
+                              <div id="buttonContainer" style="margin-top: 20px;"></div>
+                          </div>
+                          <script>
+                              function addNewButton() {
+                                  // यहाँ ब्रैकेट की गलती थी जिसे ठीक कर दिया गया है
+                                  const nameValue = document.getElementById('nameInput').value.trim();
+                                  if (!nameValue) { alert('कृपया पहले कोई नाम लिखें!'); return; }
+                                  const container = document.getElementById('buttonContainer');
+                                  const newBtn = document.createElement('button');
+                                  newBtn.className = 'dynamic-btn';
+                                  newBtn.innerText = nameValue;
+                                  let isRed = false;
+                                  newBtn.onclick = function() {
+                                      if (!isRed) {
+                                          this.style.backgroundColor = '#ff4d4d';
+                                          this.style.color = 'white';
+                                          isRed = true;
+                                      } else {
+                                          this.style.backgroundColor = '#e0e0e0';
+                                          this.style.color = 'black';
+                                          isRed = false;
+                                      }
+                                  };
+                                  container.appendChild(newBtn);
+                                  document.getElementById('nameInput').value = '';
+                              }
+                          </script>
+                      </body>
+                      </html>
+                  """.trimIndent()
+
+                  webView.loadDataWithBaseURL(null, htmlContent, "text/html", "UTF-8", null)
+                  setContentView(webView)
+              }
+          }
+          EOF
+
+      - name: 17 - Build APK
+        run: gradle :app:assembleDebug --no-daemon
+
+      - name: 18 - Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Zeeshan-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
+          
