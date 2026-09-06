@@ -119,22 +119,21 @@ jobs:
           cat > app/src/main/res/values/strings.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <string name="app_name">ZAI</string>
+              <string name="app_name">. Z Ai .</string>
           </resources>
           EOF
 
           cat > app/src/main/res/values/colors.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <color name="sky_blue">#0284C7</color>
-              <color name="sky_blue_light">#38BDF8</color>
+              <color name="royal_blue">#0F52BA</color>
               <color name="white">#FFFFFF</color>
               <color name="black">#000000</color>
-              <color name="bg_light">#F8FAFC</color>
+              <color name="bg_gray">#E5E7EB</color>
           </resources>
           EOF
 
-      - name: 12 - Create White & Sky Blue 3D Vector Z Logo and App Icon
+      - name: 12 - Create White 3D Vector Z Logo and App Launcher Icon
         run: |
           cat > app/src/main/res/drawable/ic_z_3d_logo.xml <<'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
@@ -142,7 +141,6 @@ jobs:
               android:height="100dp"
               android:viewportWidth="100"
               android:viewportHeight="100">
-              <!-- 3D Depth Shadow Layer -->
               <group
                   android:translateX="3"
                   android:translateY="4">
@@ -150,7 +148,6 @@ jobs:
                       android:fillColor="#0369A1"
                       android:pathData="M25,25 L75,25 L75,37 L42,67 L75,67 L75,79 L25,79 L25,67 L58,37 L25,37 Z" />
               </group>
-              <!-- Front White Z Layer -->
               <path
                   android:fillColor="#FFFFFF"
                   android:pathData="M25,25 L75,25 L75,37 L42,67 L75,67 L75,79 L25,79 L25,67 L58,37 L25,37 Z" />
@@ -173,7 +170,7 @@ jobs:
                           android:endY="108"
                           android:type="linear">
                           <item android:offset="0.0" android:color="#38BDF8"/>
-                          <item android:offset="1.0" android:color="#0284C7"/>
+                          <item android:offset="1.0" android:color="#0F52BA"/>
                       </gradient>
                   </aapt:attr>
               </path>
@@ -214,8 +211,11 @@ jobs:
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
               <uses-permission android:name="android.permission.INTERNET" />
-              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
               <uses-permission android:name="android.permission.RECORD_AUDIO" />
+              <uses-permission android:name="android.permission.CAMERA" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+              <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+              <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
 
               <application
                   android:allowBackup="false"
@@ -240,35 +240,41 @@ jobs:
           </manifest>
           EOF
 
-      - name: 14 - Write MainActivity.kt (ZAI Full UI Design)
+      - name: 14 - Write MainActivity.kt (Custom UI & Permissions)
         run: |
           cat > app/src/main/java/com/zai/app/MainActivity.kt <<'EOF'
           package com.zai.app
 
+          import android.Manifest
           import android.animation.ObjectAnimator
+          import android.content.pm.PackageManager
           import android.graphics.Color
           import android.graphics.Typeface
           import android.graphics.drawable.GradientDrawable
+          import android.os.Build
           import android.os.Bundle
           import android.view.Gravity
           import android.view.View
           import android.view.animation.OvershootInterpolator
           import android.widget.*
           import androidx.appcompat.app.AppCompatActivity
+          import androidx.core.app.ActivityCompat
+          import androidx.core.content.ContextCompat
 
           class MainActivity : AppCompatActivity() {
 
               private lateinit var splashView: LinearLayout
               private lateinit var mainContainer: LinearLayout
               private lateinit var chatLayout: LinearLayout
-              private lateinit var modeBanner: TextView
               private lateinit var inputEditText: EditText
+
+              private val PERMISSION_REQUEST_CODE = 101
 
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
 
                   val rootLayout = FrameLayout(this).apply {
-                      setBackgroundColor(Color.parseColor("#0284C7"))
+                      setBackgroundColor(Color.parseColor("#0F52BA"))
                   }
 
                   // 1. Splash Screen
@@ -286,29 +292,22 @@ jobs:
                       }
 
                       val appTitle = TextView(context).apply {
-                          text = "ZAI"
-                          textSize = 36f
+                          text = ". Z Ai ."
+                          textSize = 34f
                           setTypeface(null, Typeface.BOLD)
                           setTextColor(Color.WHITE)
                           setPadding(0, 20, 0, 0)
                       }
 
-                      val subTitle = TextView(context).apply {
-                          text = "Next-Gen AI Assistant"
-                          textSize = 14f
-                          setTextColor(Color.parseColor("#E0F2FE"))
-                      }
-
                       addView(logoImg)
                       addView(appTitle)
-                      addView(subTitle)
                   }
 
-                  // 2. Main App Container
+                  // 2. Main Container
                   mainContainer = LinearLayout(this).apply {
                       orientation = LinearLayout.VERTICAL
                       visibility = View.GONE
-                      setBackgroundColor(Color.parseColor("#F8FAFC"))
+                      setBackgroundColor(Color.parseColor("#E5E7EB"))
                       layoutParams = FrameLayout.LayoutParams(
                           FrameLayout.LayoutParams.MATCH_PARENT,
                           FrameLayout.LayoutParams.MATCH_PARENT
@@ -319,69 +318,52 @@ jobs:
                   val headerBar = LinearLayout(this).apply {
                       orientation = LinearLayout.HORIZONTAL
                       gravity = Gravity.CENTER_VERTICAL
-                      setPadding(35, 45, 35, 45)
-                      setBackgroundColor(Color.parseColor("#0284C7"))
+                      setPadding(30, 40, 30, 40)
+                      setBackgroundColor(Color.parseColor("#0F52BA"))
                       elevation = 12f
                   }
 
-                  val headerLogo = ImageView(this).apply {
-                      setImageResource(R.drawable.ic_z_3d_logo)
-                      layoutParams = LinearLayout.LayoutParams(80, 80)
-                  }
-
-                  val headerTextLayout = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setPadding(25, 0, 0, 0)
-                      layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                  }
-
-                  val headerTitle = TextView(this).apply {
-                      text = "किसान (ZAI)"
-                      textSize = 19f
+                  val textZAI = TextView(this).apply {
+                      text = ", Z Ai "
+                      textSize = 24f
                       setTypeface(null, Typeface.BOLD)
                       setTextColor(Color.WHITE)
                   }
 
-                  val headerStatus = TextView(this).apply {
-                      text = "साधारण बातचीत व स्वास्थ्य सलाहकार"
-                      textSize = 11f
-                      setTextColor(Color.parseColor("#BAE6FD"))
+                  val verticalDivider = View(this).apply {
+                      layoutParams = LinearLayout.LayoutParams(4, 60).apply {
+                          setMargins(15, 0, 15, 0)
+                      }
+                      setBackgroundColor(Color.WHITE)
                   }
 
-                  headerTextLayout.addView(headerTitle)
-                  headerTextLayout.addView(headerStatus)
-
-                  // Round "Set" Button
-                  val setRoundButton = Button(this).apply {
-                      text = "Set"
-                      textSize = 13f
+                  val textZeeshan = TextView(this).apply {
+                      text = ", Zeeshan "
+                      textSize = 20f
                       setTypeface(null, Typeface.BOLD)
-                      setTextColor(Color.parseColor("#0284C7"))
-                      
+                      setTextColor(Color.WHITE)
+                      layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                  }
+
+                  val roundMenuBtn = ImageButton(this).apply {
+                      setImageResource(R.drawable.ic_z_3d_logo)
                       background = GradientDrawable().apply {
                           shape = GradientDrawable.OVAL
                           setColor(Color.WHITE)
                       }
-                      layoutParams = LinearLayout.LayoutParams(110, 110)
-                      
+                      scaleType = ImageView.ScaleType.FIT_CENTER
+                      setPadding(10, 10, 10, 10)
+                      layoutParams = LinearLayout.LayoutParams(100, 100)
+
                       setOnClickListener { view ->
-                          openOptionMenu(view, headerStatus)
+                          openOptionMenu(view)
                       }
                   }
 
-                  headerBar.addView(headerLogo)
-                  headerBar.addView(headerTextLayout)
-                  headerBar.addView(setRoundButton)
-
-                  // Mode Indicator Banner
-                  modeBanner = TextView(this).apply {
-                      text = "💡 मोड: सामान्य बातचीत व स्वास्थ्य सम्बन्धी सवाल"
-                      textSize = 12f
-                      setTextColor(Color.parseColor("#0369A1"))
-                      setBackgroundColor(Color.parseColor("#E0F2FE"))
-                      setPadding(30, 15, 30, 15)
-                      gravity = Gravity.CENTER
-                  }
+                  headerBar.addView(textZAI)
+                  headerBar.addView(verticalDivider)
+                  headerBar.addView(textZeeshan)
+                  headerBar.addView(roundMenuBtn)
 
                   // Chat Message Scroll View
                   val scrollView = ScrollView(this).apply {
@@ -398,7 +380,7 @@ jobs:
                       setPadding(30, 30, 30, 30)
                   }
 
-                  addMessageBubble("नमस्ते! मैं ZAI हूँ। आप मुझसे कोई भी सवाल पूछ सकते हैं या स्वास्थ्य/बीमारी सम्बन्धी जानकारी ले सकते हैं। ऊपर गोल 'Set' बटन दबाकर आप वीडियो, इमेज या कोड मोड चुन सकते हैं।", isUser = false)
+                  add3DWelcomeMessage(". Welcome to Z AI ! How can I help you?")
 
                   scrollView.addView(chatLayout)
 
@@ -407,20 +389,29 @@ jobs:
                       orientation = LinearLayout.HORIZONTAL
                       gravity = Gravity.CENTER_VERTICAL
                       setPadding(20, 20, 20, 20)
-                      setBackgroundColor(Color.WHITE)
+                      background = GradientDrawable().apply {
+                          setColor(Color.WHITE)
+                          cornerRadius = 60f
+                      }
                       elevation = 16f
+                      layoutParams = LinearLayout.LayoutParams(
+                          LinearLayout.LayoutParams.MATCH_PARENT,
+                          LinearLayout.LayoutParams.WRAP_CONTENT
+                      ).apply {
+                          setMargins(20, 10, 20, 20)
+                      }
                   }
 
                   val micBtn = createIconButton("🎙️") {
-                      Toast.makeText(this, "आवाज रिकॉर्डिंग मोड ऑन", Toast.LENGTH_SHORT).show()
+                      checkAndRequestPermissions()
                   }
 
                   val galleryBtn = createIconButton("🖼️") {
-                      Toast.makeText(this, "गैलरी से फोटो चुनें (AI एनालिसिस हेतु)", Toast.LENGTH_SHORT).show()
+                      checkAndRequestPermissions()
                   }
 
                   val videoBtn = createIconButton("🎥") {
-                      Toast.makeText(this, "वीडियो चुनें (AI कहानी/समस्या निवारण हेतु)", Toast.LENGTH_SHORT).show()
+                      checkAndRequestPermissions()
                   }
 
                   inputEditText = EditText(this).apply {
@@ -439,12 +430,12 @@ jobs:
                   }
 
                   val sendBtn = Button(this).apply {
-                      text = "➔"
-                      textSize = 18f
+                      text = "✈"
+                      textSize = 20f
                       setTextColor(Color.WHITE)
                       background = GradientDrawable().apply {
                           shape = GradientDrawable.OVAL
-                          setColor(Color.parseColor("#0284C7"))
+                          setColor(Color.parseColor("#0F52BA"))
                       }
                       layoutParams = LinearLayout.LayoutParams(110, 110)
 
@@ -464,7 +455,6 @@ jobs:
                   inputDock.addView(sendBtn)
 
                   mainContainer.addView(headerBar)
-                  mainContainer.addView(modeBanner)
                   mainContainer.addView(scrollView)
                   mainContainer.addView(inputDock)
 
@@ -476,7 +466,32 @@ jobs:
                   runSplashAnimation()
               }
 
-              private fun openOptionMenu(view: View, statusText: TextView) {
+              private fun checkAndRequestPermissions() {
+                  val permissions = mutableListOf(
+                      Manifest.permission.RECORD_AUDIO,
+                      Manifest.permission.CAMERA
+                  )
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                      permissions.add(Manifest.permission.READ_MEDIA_IMAGES)
+                      permissions.add(Manifest.permission.READ_MEDIA_VIDEO)
+                  } else {
+                      permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+                  }
+
+                  val listPermissionsNeeded = permissions.filter {
+                      ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+                  }
+
+                  if (listPermissionsNeeded.isNotEmpty()) {
+                      ActivityCompat.requestPermissions(
+                          this,
+                          listPermissionsNeeded.toTypedArray(),
+                          PERMISSION_REQUEST_CODE
+                      )
+                  }
+              }
+
+              private fun openOptionMenu(view: View) {
                   val popup = PopupMenu(this, view)
                   popup.menu.add("🎥 वीडियो जनरेट (Video Generate)")
                   popup.menu.add("🎨 इमेज जनरेट (Image Generate)")
@@ -484,31 +499,36 @@ jobs:
                   popup.menu.add("💬 सामान्य बातचीत व स्वास्थ्य (General)")
 
                   popup.setOnMenuItemClickListener { item ->
-                      when (item.title.toString()) {
-                          "🎥 वीडियो जनरेट (Video Generate)" -> {
-                              modeBanner.text = "🎬 मोड: AI वीडियो जनरेटर मोड सक्रिय"
-                              statusText.text = "वीडियो जनरेशन मोड"
-                              addSystemNotice("वीडियो जनरेट चैट मोड चालू हो गया है। प्रॉम्ट लिखें या वीडियो अपलोड करें।")
-                          }
-                          "🎨 इमेज जनरेट (Image Generate)" -> {
-                              modeBanner.text = "🎨 मोड: AI फोटो/इमेज जनरेटर मोड सक्रिय"
-                              statusText.text = "इमेज जनरेशन मोड"
-                              addSystemNotice("इमेज जनरेट मोड चालू हो गया है। अपनी पसंद का फोटो वर्णन लिखें।")
-                          }
-                          "💻 कोड जनरेट (Code Generate)" -> {
-                              modeBanner.text = "💻 मोड: प्रोग्रामिंग व कोड जनरेटर सक्रिय"
-                              statusText.text = "कोडिंग मोड"
-                              addSystemNotice("कोड राइटिंग मोड चालू हो गया है। अपनी भाषा या लॉजिक बताएं।")
-                          }
-                          else -> {
-                              modeBanner.text = "💡 मोड: सामान्य बातचीत व स्वास्थ्य सम्बन्धी सवाल"
-                              statusText.text = "साधारण बातचीत व स्वास्थ्य सलाहकार"
-                              addSystemNotice("सामान्य बातचीत व मेडिकल हेल्प मोड सक्रिय है।")
-                          }
-                      }
+                      Toast.makeText(this, item.title, Toast.LENGTH_SHORT).show()
                       true
                   }
                   popup.show()
+              }
+
+              private fun add3DWelcomeMessage(text: String) {
+                  val bubble = TextView(this).apply {
+                      this.text = text
+                      textSize = 16f
+                      setTypeface(null, Typeface.BOLD)
+                      setTextColor(Color.WHITE)
+                      setPadding(40, 35, 40, 35)
+                      elevation = 10f
+
+                      background = GradientDrawable().apply {
+                          setColor(Color.parseColor("#6B7280"))
+                          cornerRadius = 30f
+                          setStroke(2, Color.parseColor("#4B5563"))
+                      }
+                  }
+
+                  val params = LinearLayout.LayoutParams(
+                      LinearLayout.LayoutParams.MATCH_PARENT,
+                      LinearLayout.LayoutParams.WRAP_CONTENT
+                  ).apply {
+                      setMargins(0, 20, 0, 20)
+                  }
+
+                  chatLayout.addView(bubble, params)
               }
 
               private fun addMessageBubble(text: String, isUser: Boolean) {
@@ -521,7 +541,7 @@ jobs:
                       if (isUser) {
                           setTextColor(Color.WHITE)
                           background = GradientDrawable().apply {
-                              setColor(Color.parseColor("#0284C7"))
+                              setColor(Color.parseColor("#0F52BA"))
                               cornerRadii = floatArrayOf(40f, 40f, 0f, 40f, 40f, 40f, 40f, 40f)
                           }
                       } else {
@@ -544,17 +564,6 @@ jobs:
                   chatLayout.addView(bubble, params)
               }
 
-              private fun addSystemNotice(notice: String) {
-                  val noticeView = TextView(this).apply {
-                      text = notice
-                      textSize = 11f
-                      setTextColor(Color.GRAY)
-                      gravity = Gravity.CENTER
-                      setPadding(0, 15, 0, 15)
-                  }
-                  chatLayout.addView(noticeView)
-              }
-
               private fun createIconButton(icon: String, onClick: () -> Unit): Button {
                   return Button(this).apply {
                       text = icon
@@ -566,21 +575,22 @@ jobs:
               }
 
               private fun runSplashAnimation() {
-                  val scaleX = ObjectAnimator.ofFloat(splashView, "scaleX", 0.8f, 1.1f, 1.0f).setDuration(1200)
-                  val scaleY = ObjectAnimator.ofFloat(splashView, "scaleY", 0.8f, 1.1f, 1.0f).setDuration(1200)
+                  val scaleX = ObjectAnimator.ofFloat(splashView, "scaleX", 0.8f, 1.1f, 1.0f).setDuration(1000)
+                  val scaleY = ObjectAnimator.ofFloat(splashView, "scaleY", 0.8f, 1.1f, 1.0f).setDuration(1000)
                   scaleX.interpolator = OvershootInterpolator()
                   scaleY.interpolator = OvershootInterpolator()
                   scaleX.start()
                   scaleY.start()
 
                   splashView.postDelayed({
+                      checkAndRequestPermissions()
                       splashView.animate().alpha(0f).setDuration(400).withEndAction {
                           splashView.visibility = View.GONE
                           mainContainer.visibility = View.VISIBLE
                           mainContainer.alpha = 0f
                           mainContainer.animate().alpha(1f).setDuration(400).start()
                       }.start()
-                  }, 2200)
+                  }, 2000)
               }
           }
           EOF
@@ -593,4 +603,3 @@ jobs:
         with:
           name: ZAI-App-APK
           path: app/build/outputs/apk/debug/app-debug.apk
-
