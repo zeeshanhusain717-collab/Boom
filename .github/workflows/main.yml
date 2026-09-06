@@ -143,11 +143,13 @@ jobs:
               android:viewportWidth="100"
               android:viewportHeight="100">
               <!-- 3D Depth Shadow Layer -->
-              <path
-                  android:fillColor="#0369A1"
-                  android:pathData="M25,25 L75,25 L75,37 L42,67 L75,67 L75,79 L25,79 L25,67 L58,37 L25,37 Z"
-                  android:translationX="3"
-                  android:translationY="4" />
+              <group
+                  android:translateX="3"
+                  android:translateY="4">
+                  <path
+                      android:fillColor="#0369A1"
+                      android:pathData="M25,25 L75,25 L75,37 L42,67 L75,67 L75,79 L25,79 L25,67 L58,37 L25,37 Z" />
+              </group>
               <!-- Front White Z Layer -->
               <path
                   android:fillColor="#FFFFFF"
@@ -184,11 +186,13 @@ jobs:
               android:height="108dp"
               android:viewportWidth="108"
               android:viewportHeight="108">
-              <path
-                  android:fillColor="#0369A1"
-                  android:pathData="M30,30 L78,30 L78,42 L48,68 L78,68 L78,78 L30,78 L30,68 L60,42 L30,42 Z"
-                  android:translationX="3"
-                  android:translationY="4" />
+              <group
+                  android:translateX="3"
+                  android:translateY="4">
+                  <path
+                      android:fillColor="#0369A1"
+                      android:pathData="M30,30 L78,30 L78,42 L48,68 L78,68 L78,78 L30,78 L30,68 L60,42 L30,42 Z" />
+              </group>
               <path
                   android:fillColor="#FFFFFF"
                   android:pathData="M30,30 L78,30 L78,42 L48,68 L78,68 L78,78 L30,78 L30,68 L60,42 L30,42 Z" />
