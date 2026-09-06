@@ -79,7 +79,7 @@ jobs:
         with:
           gradle-version: "8.5"
 
-      - name: 10 - Write app/build.gradle
+      - name: 10 - Write app/build.gradle (OkHttp Added)
         run: |
           cat > app/build.gradle <<'EOF'
           plugins {
@@ -112,6 +112,7 @@ jobs:
               implementation "androidx.appcompat:appcompat:1.7.0"
               implementation "androidx.activity:activity-ktx:1.9.0"
               implementation "com.google.android.material:material:1.12.0"
+              implementation "com.squareup.okhttp3:okhttp:4.12.0"
           }
           EOF
 
@@ -222,6 +223,7 @@ jobs:
                   android:supportsRtl="true"
                   android:icon="@mipmap/ic_launcher"
                   android:roundIcon="@mipmap/ic_launcher"
+                  android:usesCleartextTraffic="true"
                   android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
 
                   <activity
@@ -239,7 +241,7 @@ jobs:
           </manifest>
           EOF
 
-      - name: 14 - Write MainActivity.kt (Inline Image Preview, Custom Prompts & Memory Attachment Button)
+      - name: 14 - Write MainActivity.kt (API Integration)
         run: |
           cat > app/src/main/java/com/zai/app/MainActivity.kt <<'EOF'
           package com.zai.app
@@ -261,11 +263,30 @@ jobs:
           import androidx.appcompat.app.AppCompatActivity
           import androidx.core.app.ActivityCompat
           import androidx.core.content.ContextCompat
+          import okhttp3.*
+          import okhttp3.MediaType.Companion.toMediaType
+          import okhttp3.RequestBody.Companion.toRequestBody
+          import org.json.JSONObject
+          import java.io.IOException
+          import java.util.concurrent.TimeUnit
 
           class MainActivity : AppCompatActivity() {
 
               private lateinit var chatLayout: LinearLayout
               private lateinit var inputEditText: EditText
+              private lateinit var scrollView: ScrollView
+              
+              // Kaggle AI Server URL
+              private val SERVER_URL = "https://sherry-showroom-constant.ngrok-free.dev/api/zai-engine"
+              
+              // OkHttpClient (लॉन्ग टाइमआउट क्योंकि AI मॉडल जनरेशन में समय लगा सकता है)
+              private val client = OkHttpClient.Builder()
+                  .connectTimeout(60, TimeUnit.SECONDS)
+                  .writeTimeout(60, TimeUnit.SECONDS)
+                  .readTimeout(120, TimeUnit.SECONDS)
+                  .build()
+                  
+              private var currentMode = "text"
 
               // Memory / File Attachment Picker
               private val pickFileLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -273,10 +294,9 @@ jobs:
                       val mimeType = contentResolver.getType(it) ?: ""
                       if (mimeType.startsWith("image/")) {
                           addImageBubble(it, isUser = true)
-                          addTextMessageBubble("Z AI: आपकी फोटो प्राप्त हो गई है। प्रोसेसिंग जारी है...", isUser = false)
+                          addTextMessageBubble("Z AI: आपकी फोटो प्राप्त हो गई है।", isUser = false)
                       } else {
                           addTextMessageBubble("📁 फाइल सिलेक्ट की गई: ${it.lastPathSegment ?: "फाइल"}", isUser = true)
-                          addTextMessageBubble("Z AI: आपकी फाइल प्राप्त हो गई है।", isUser = false)
                       }
                   }
               }
@@ -326,7 +346,6 @@ jobs:
                       setBackgroundColor(Color.WHITE)
                   }
 
-                  // Bold Creator Name Text
                   val textZeeshan = TextView(this).apply {
                       text = ", Zeeshan"
                       textSize = 26f
@@ -335,7 +354,6 @@ jobs:
                       layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                   }
 
-                  // Round Menu Icon Button
                   val roundMenuBtn = ImageButton(this).apply {
                       setImageResource(R.drawable.ic_z_3d_logo)
                       background = GradientDrawable().apply {
@@ -357,7 +375,7 @@ jobs:
                   headerBar.addView(roundMenuBtn)
 
                   // Chat Scroll Container
-                  val scrollView = ScrollView(this).apply {
+                  scrollView = ScrollView(this).apply {
                       layoutParams = LinearLayout.LayoutParams(
                           LinearLayout.LayoutParams.MATCH_PARENT,
                           0,
@@ -371,7 +389,7 @@ jobs:
                       setPadding(30, 30, 30, 30)
                   }
 
-                  add3DWelcomeMessage(". Welcome to Z AI ! How can I help you?")
+                  add3DWelcomeMessage("Welcome to Z AI ! मैं तैयार हूँ।")
 
                   scrollView.addView(chatLayout)
 
@@ -393,23 +411,16 @@ jobs:
                       }
                   }
 
-                  // 1. Mic Button
                   val micBtn = createIconButton("🎙️") {
-                      if (checkPermissions()) {
-                          openVoiceInput()
-                      }
+                      if (checkPermissions()) openVoiceInput()
                   }
 
-                  // 2. Memory / File Attachment Button
                   val memoryBtn = createIconButton("📁") {
-                      if (checkPermissions()) {
-                          pickFileLauncher.launch("*/*")
-                      }
+                      if (checkPermissions()) pickFileLauncher.launch("*/*")
                   }
 
-                  // 3. Text Input Box
                   inputEditText = EditText(this).apply {
-                      hint = "यहाँ संदेश या सवाल लिखें..."
+                      hint = "यहाँ संदेश लिखें..."
                       textSize = 15f
                       setHintTextColor(Color.GRAY)
                       setTextColor(Color.BLACK)
@@ -423,7 +434,6 @@ jobs:
                       }
                   }
 
-                  // 4. Send Button
                   val sendBtn = Button(this).apply {
                       text = "✈"
                       textSize = 20f
@@ -439,6 +449,8 @@ jobs:
                           if (txt.isNotEmpty()) {
                               addTextMessageBubble(txt, isUser = true)
                               inputEditText.text.clear()
+                              // AI API Call Trigger
+                              callAiServer(txt, currentMode)
                           }
                       }
                   }
@@ -453,8 +465,65 @@ jobs:
                   mainContainer.addView(inputDock)
 
                   setContentView(mainContainer)
-
                   checkPermissions()
+              }
+
+              // नेटवर्क कॉल फंक्शन (API Call)
+              private fun callAiServer(prompt: String, mode: String) {
+                  addTextMessageBubble("Z AI सोच रहा है...", isUser = false)
+                  scrollToBottom()
+
+                  val json = JSONObject()
+                  json.put("prompt", prompt)
+                  json.put("mode", mode)
+
+                  val requestBody = json.toString().toRequestBody("application/json".toMediaType())
+                  val request = Request.Builder()
+                      .url(SERVER_URL)
+                      .post(requestBody)
+                      .build()
+
+                  client.newCall(request).enqueue(object : Callback {
+                      override fun onFailure(call: Call, e: IOException) {
+                          runOnUiThread {
+                              addTextMessageBubble("❌ कनेक्शन एरर: सर्वर तक पहुँच नहीं पाया। कृपया जांचें कि Kaggle सर्वर चालू है।", isUser = false)
+                              scrollToBottom()
+                          }
+                      }
+
+                      override fun onResponse(call: Call, response: Response) {
+                          val responseData = response.body?.string()
+                          runOnUiThread {
+                              if (response.isSuccessful && responseData != null) {
+                                  try {
+                                      val jsonResponse = JSONObject(responseData)
+                                      val type = jsonResponse.optString("type", "")
+                                      
+                                      if (type == "text") {
+                                          val result = jsonResponse.optString("result", "कोई जवाब नहीं आया।")
+                                          addTextMessageBubble(result, isUser = false)
+                                      } else if (type == "image") {
+                                          val msg = jsonResponse.optString("message", "Image Generated")
+                                          addTextMessageBubble("🖼️ $msg (नोट: इमेज Kaggle सर्वर पर सेव हो गई है)", isUser = false)
+                                      } else {
+                                          addTextMessageBubble("✅ प्रोसेसिंग पूरी हुई।", isUser = false)
+                                      }
+                                  } catch (e: Exception) {
+                                      addTextMessageBubble("❌ डेटा प्रोसेस करने में एरर आई।", isUser = false)
+                                  }
+                              } else {
+                                  addTextMessageBubble("❌ सर्वर एरर: ${response.code}", isUser = false)
+                              }
+                              scrollToBottom()
+                          }
+                      }
+                  })
+              }
+
+              private fun scrollToBottom() {
+                  scrollView.post {
+                      scrollView.fullScroll(View.FOCUS_DOWN)
+                  }
               }
 
               private fun openVoiceInput() {
@@ -494,26 +563,26 @@ jobs:
 
               private fun openOptionMenuHindi(view: View) {
                   val popup = PopupMenu(this, view)
-                  popup.menu.add("🎥 वीडियो जनरेट करें")
                   popup.menu.add("🎨 फोटो जनरेट करें")
                   popup.menu.add("💻 कोड जनरेट करें")
                   popup.menu.add("💬 सामान्य चैट व सहायता")
 
                   popup.setOnMenuItemClickListener { item ->
                       when (item.title.toString()) {
-                          "🎥 वीडियो जनरेट करें" -> {
-                              addTextMessageBubble("🎥 [वीडियो जनरेशन मोड़]: आप कैसा वीडियो बनाना चाहते हैं? नीचे विवरण लिखें...", isUser = false)
-                          }
                           "🎨 फोटो जनरेट करें" -> {
-                              addTextMessageBubble("🎨 [फोटो जनरेशन मोड़]: आप कैसी फोटो जनरेट करना चाहते हैं? विवरण लिखें...", isUser = false)
+                              currentMode = "image"
+                              addTextMessageBubble("🎨 [फोटो मोड़]: आप कैसी फोटो चाहते हैं? विवरण लिखें...", isUser = false)
                           }
                           "💻 कोड जनरेट करें" -> {
-                              addTextMessageBubble("💻 [कोड जनरेशन मोड़]: आप किस प्रोग्रामिंग भाषा में कोड चाहते हैं?", isUser = false)
+                              currentMode = "text"
+                              addTextMessageBubble("💻 [कोड मोड़]: आप किस प्रोग्रामिंग भाषा में कोड चाहते हैं?", isUser = false)
                           }
                           "💬 सामान्य चैट व सहायता" -> {
-                              addTextMessageBubble("💬 Z AI सहायता चालू है। आप कोई भी सवाल पूछ सकते हैं।", isUser = false)
+                              currentMode = "text"
+                              addTextMessageBubble("💬 चैट मोड चालू है। आप कोई भी सवाल पूछ सकते हैं।", isUser = false)
                           }
                       }
+                      scrollToBottom()
                       true
                   }
                   popup.show()
@@ -534,14 +603,9 @@ jobs:
                           setStroke(2, Color.parseColor("#374151"))
                       }
                   }
-
-                  val params = LinearLayout.LayoutParams(
-                      LinearLayout.LayoutParams.MATCH_PARENT,
-                      LinearLayout.LayoutParams.WRAP_CONTENT
-                  ).apply {
+                  val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                       setMargins(0, 20, 0, 20)
                   }
-
                   chatLayout.addView(bubble, params)
               }
 
@@ -566,15 +630,10 @@ jobs:
                           }
                       }
                   }
-
-                  val params = LinearLayout.LayoutParams(
-                      LinearLayout.LayoutParams.WRAP_CONTENT,
-                      LinearLayout.LayoutParams.WRAP_CONTENT
-                  ).apply {
+                  val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                       gravity = if (isUser) Gravity.END else Gravity.START
                       setMargins(0, 15, 0, 15)
                   }
-
                   chatLayout.addView(bubble, params)
               }
 
@@ -587,24 +646,17 @@ jobs:
                           cornerRadius = 30f
                       }
                   }
-
                   val imageView = ImageView(this).apply {
                       setImageURI(imageUri)
                       scaleType = ImageView.ScaleType.CENTER_CROP
                       adjustViewBounds = true
                       layoutParams = FrameLayout.LayoutParams(500, 500)
                   }
-
                   cardView.addView(imageView)
-
-                  val params = LinearLayout.LayoutParams(
-                      LinearLayout.LayoutParams.WRAP_CONTENT,
-                      LinearLayout.LayoutParams.WRAP_CONTENT
-                  ).apply {
+                  val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                       gravity = if (isUser) Gravity.END else Gravity.START
                       setMargins(0, 15, 0, 15)
                   }
-
                   chatLayout.addView(cardView, params)
               }
 
