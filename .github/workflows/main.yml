@@ -1,4 +1,4 @@
-name: Build Zeeshan Security APK
+name: Build ZAI AI App APK
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: Build Zeeshan Security APK
+    name: Build ZAI AI App APK
     runs-on: ubuntu-latest
 
     steps:
@@ -34,10 +34,10 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-      - name: 05 - Create directories
+      - name: 05 - Create project directories
         run: |
           set -euo pipefail
-          mkdir -p app/src/main/java/com/zeeshan/app
+          mkdir -p app/src/main/java/com/zai/app
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/drawable
           mkdir -p app/src/main/res/mipmap-anydpi-v26
@@ -61,7 +61,7 @@ jobs:
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
               repositories { google(); mavenCentral() }
           }
-          rootProject.name = "Zeeshan"
+          rootProject.name = "ZAI"
           include(":app")
           EOF
 
@@ -87,17 +87,19 @@ jobs:
               id "org.jetbrains.kotlin.android"
           }
           android {
-              namespace "com.zeeshan.app"
+              namespace "com.zai.app"
               compileSdk 34
               defaultConfig {
-                  applicationId "com.zeeshan.app"
+                  applicationId "com.zai.app"
                   minSdk 26
                   targetSdk 34
                   versionCode 1
                   versionName "1.0"
               }
               buildTypes {
-                  release { minifyEnabled false }
+                  release {
+                      minifyEnabled false
+                  }
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
@@ -117,38 +119,87 @@ jobs:
           cat > app/src/main/res/values/strings.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <string name="app_name">Zeeshan Security</string>
+              <string name="app_name">ZAI</string>
           </resources>
           EOF
 
           cat > app/src/main/res/values/colors.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <color name="black">#000000</color>
+              <color name="sky_blue">#0284C7</color>
+              <color name="sky_blue_light">#38BDF8</color>
               <color name="white">#FFFFFF</color>
+              <color name="black">#000000</color>
+              <color name="bg_light">#F8FAFC</color>
           </resources>
           EOF
 
-      - name: 12 - Create Icon XML
+      - name: 12 - Create White & Sky Blue 3D Vector Z Logo and App Icon
         run: |
-          cat > app/src/main/res/drawable/app_icon.xml <<'EOF'
+          cat > app/src/main/res/drawable/ic_z_3d_logo.xml <<'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="108dp"
-              android:height="108dp"
+              android:width="100dp"
+              android:height="100dp"
               android:viewportWidth="100"
               android:viewportHeight="100">
-              <path android:fillColor="#000000" android:pathData="M0,0h100v100H0z"/>
-              <path android:fillColor="#16A34A" android:pathData="M25,25 h50 v15 h-50 z"/>
-              <path android:fillColor="#FFFFFF" android:pathData="M65,40 l-30,30 h15 l30,-30 z"/>
-              <path android:fillColor="#16A34A" android:pathData="M25,70 h50 v15 h-50 z"/>
+              <!-- 3D Depth Shadow Layer -->
+              <path
+                  android:fillColor="#0369A1"
+                  android:pathData="M25,25 L75,25 L75,37 L42,67 L75,67 L75,79 L25,79 L25,67 L58,37 L25,37 Z"
+                  android:translationX="3"
+                  android:translationY="4" />
+              <!-- Front White Z Layer -->
+              <path
+                  android:fillColor="#FFFFFF"
+                  android:pathData="M25,25 L75,25 L75,37 L42,67 L75,67 L75,79 L25,79 L25,67 L58,37 L25,37 Z" />
           </vector>
           EOF
 
+          cat > app/src/main/res/drawable/ic_launcher_bg.xml <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:aapt="http://schemas.android.com/aapt"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="108"
+              android:viewportHeight="108">
+              <path android:pathData="M0,0h108v108h-108z">
+                  <aapt:attr name="android:fillColor">
+                      <gradient
+                          android:startX="0"
+                          android:startY="0"
+                          android:endX="108"
+                          android:endY="108"
+                          android:type="linear">
+                          <item android:offset="0.0" android:color="#38BDF8"/>
+                          <item android:offset="1.0" android:color="#0284C7"/>
+                      </gradient>
+                  </aapt:attr>
+              </path>
+          </vector>
+          EOF
+          
+          cat > app/src/main/res/drawable/ic_launcher_fg.xml <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="108"
+              android:viewportHeight="108">
+              <path
+                  android:fillColor="#0369A1"
+                  android:pathData="M30,30 L78,30 L78,42 L48,68 L78,68 L78,78 L30,78 L30,68 L60,42 L30,42 Z"
+                  android:translationX="3"
+                  android:translationY="4" />
+              <path
+                  android:fillColor="#FFFFFF"
+                  android:pathData="M30,30 L78,30 L78,42 L48,68 L78,68 L78,78 L30,78 L30,68 L60,42 L30,42 Z" />
+          </vector>
+          EOF
+          
           cat > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-              <background android:drawable="@color/black" />
-              <foreground android:drawable="@drawable/app_icon" />
+              <background android:drawable="@drawable/ic_launcher_bg" />
+              <foreground android:drawable="@drawable/ic_launcher_fg" />
           </adaptive-icon>
           EOF
 
@@ -156,21 +207,11 @@ jobs:
         run: |
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              xmlns:tools="http://schemas.android.com/tools">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-              <!-- Foreground & Notification -->
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-              
-              <!-- Display Popup -->
-              <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-              
-              <!-- Storage Permissions -->
-              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
-              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
-              <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+              <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
               <application
                   android:allowBackup="false"
@@ -178,442 +219,374 @@ jobs:
                   android:supportsRtl="true"
                   android:icon="@mipmap/ic_launcher"
                   android:roundIcon="@mipmap/ic_launcher"
-                  android:theme="@style/Theme.Material3.DayNight.NoActionBar">
+                  android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
 
                   <activity
                       android:name=".MainActivity"
-                      android:exported="true">
+                      android:exported="true"
+                      android:windowSoftInputMode="adjustResize"
+                      android:configChanges="orientation|screenSize|keyboardHidden">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
 
-                  <activity android:name=".HistoryActivity" />
-
-                  <service
-                      android:name=".SecurityService"
-                      android:foregroundServiceType="dataSync"
-                      android:exported="false" />
-
               </application>
           </manifest>
           EOF
 
-      - name: 14 - Write DatabaseHelper.kt
+      - name: 14 - Write MainActivity.kt (ZAI Full UI Design)
         run: |
-          cat > app/src/main/java/com/zeeshan/app/DatabaseHelper.kt <<'EOF'
-          package com.zeeshan.app
+          cat > app/src/main/java/com/zai/app/MainActivity.kt <<'EOF'
+          package com.zai.app
 
-          import android.content.ContentValues
-          import android.content.Context
-          import android.database.sqlite.SQLiteDatabase
-          import android.database.sqlite.SQLiteOpenHelper
-          import java.text.SimpleDateFormat
-          import java.util.Date
-          import java.util.Locale
-
-          class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
-              companion object {
-                  private const val DATABASE_NAME = "zeeshan_security.db"
-                  private const val DATABASE_VERSION = 1
-                  private const val TABLE_HISTORY = "history"
-                  private const val MAX_DB_SIZE_BYTES = 50 * 1024 * 1024
-              }
-
-              override fun onCreate(db: SQLiteDatabase) {
-                  val createTable = "CREATE TABLE $TABLE_HISTORY (id INTEGER PRIMARY KEY AUTOINCREMENT, file_name TEXT, action TEXT, timestamp TEXT)"
-                  db.execSQL(createTable)
-              }
-
-              override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-                  db.execSQL("DROP TABLE IF EXISTS $TABLE_HISTORY")
-                  onCreate(db)
-              }
-
-              fun addLog(fileName: String, action: String) {
-                  try {
-                      checkAndTrimDatabaseSize()
-                      val db = this.writableDatabase
-                      val values = ContentValues().apply {
-                          put("file_name", fileName)
-                          put("action", action)
-                          put("timestamp", SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()))
-                      }
-                      db.insert(TABLE_HISTORY, null, values)
-                      db.close()
-                  } catch (e: Exception) { e.printStackTrace() }
-              }
-
-              fun getAllLogs(): List<String> {
-                  val list = mutableListOf<String>()
-                  try {
-                      val db = this.readableDatabase
-                      val cursor = db.rawQuery("SELECT file_name, action, timestamp FROM $TABLE_HISTORY ORDER BY id DESC", null)
-                      if (cursor.moveToFirst()) {
-                          do {
-                              list.add("[${cursor.getString(2)}]\nफाइल: ${cursor.getString(0)}\nएक्शन: ${cursor.getString(1)}")
-                          } while (cursor.moveToNext())
-                      }
-                      cursor.close()
-                      db.close()
-                  } catch (e: Exception) { e.printStackTrace() }
-                  return list
-              }
-
-              private fun checkAndTrimDatabaseSize() {
-                  val dbFile = context.getDatabasePath(DATABASE_NAME)
-                  if (dbFile.exists() && dbFile.length() > MAX_DB_SIZE_BYTES) {
-                      val db = this.writableDatabase
-                      db.execSQL("DELETE FROM $TABLE_HISTORY WHERE id IN (SELECT id FROM $TABLE_HISTORY ORDER BY id ASC LIMIT 100)")
-                      db.close()
-                  }
-              }
-          }
-          EOF
-
-      - name: 15 - Write SecurityService.kt (Fixed Type Mismatch Error)
-        run: |
-          cat > app/src/main/java/com/zeeshan/app/SecurityService.kt <<'EOF'
-          package com.zeeshan.app
-
-          import android.app.Notification
-          import android.app.NotificationChannel
-          import android.app.NotificationManager
-          import android.app.Service
-          import android.content.Intent
-          import android.content.pm.ServiceInfo
-          import android.graphics.Color
-          import android.graphics.PixelFormat
-          import android.os.Build
-          import android.os.CountDownTimer
-          import android.os.Environment
-          import android.os.FileObserver
-          import android.os.Handler
-          import android.os.IBinder
-          import android.os.Looper
-          import android.provider.Settings
-          import android.view.Gravity
-          import android.view.View
-          import android.view.WindowManager
-          import android.widget.Button
-          import android.widget.LinearLayout
-          import android.widget.TextView
-          import androidx.core.app.NotificationCompat
-          import java.io.File
-
-          class SecurityService : Service() {
-
-              private var fileObserver: FileObserver? = null
-              private var windowManager: WindowManager? = null
-              private var popupView: View? = null
-              private var countDownTimer: CountDownTimer? = null
-              private lateinit var dbHelper: DatabaseHelper
-              private val handler = Handler(Looper.getMainLooper())
-
-              override fun onCreate() {
-                  super.onCreate()
-                  dbHelper = DatabaseHelper(this)
-                  startForegroundServiceCompat()
-                  startWatchingDownloads()
-              }
-
-              private fun startForegroundServiceCompat() {
-                  val channelId = "zeeshan_security_channel"
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      val channel = NotificationChannel(channelId, "Zeeshan Protection", NotificationManager.IMPORTANCE_LOW)
-                      getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
-                  }
-
-                  val notification: Notification = NotificationCompat.Builder(this, channelId)
-                      .setContentTitle("Zeeshan सुरक्षा सक्रिय है")
-                      .setContentText("सिस्टम बैकग्राउंड में डाउनलोड्स पर नज़र रख रहा है")
-                      .setSmallIcon(android.R.drawable.ic_secure)
-                      .setOngoing(true)
-                      .build()
-
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                      startForeground(1001, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-                  } else {
-                      startForeground(1001, notification)
-                  }
-              }
-
-              private fun startWatchingDownloads() {
-                  val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                  if (!downloadDir.exists()) downloadDir.mkdirs()
-
-                  @Suppress("DEPRECATION")
-                  fileObserver = object : FileObserver(downloadDir.absolutePath, CREATE or MOVED_TO) {
-                      override fun onEvent(event: Int, path: String?) {
-                          if (path != null && !path.endsWith(".quarantine") && !path.endsWith(".tmp")) {
-                              handler.post { handleNewDownload(File(downloadDir, path)) }
-                          }
-                      }
-                  }
-                  fileObserver?.startWatching()
-              }
-
-              private fun handleNewDownload(file: File) {
-                  if (!file.exists()) return
-                  try {
-                      val quarantineFile = File(file.parent, file.name + ".quarantine")
-                      if (file.renameTo(quarantineFile)) {
-                          showOverlayPopup(quarantineFile, file.name)
-                      }
-                  } catch (e: Exception) { e.printStackTrace() }
-              }
-
-              private fun showOverlayPopup(quarantineFile: File, originalName: String) {
-                  if (!Settings.canDrawOverlays(this)) {
-                      quarantineFile.delete()
-                      dbHelper.addLog(originalName, "BLOCKED (No Overlay Permission)")
-                      return
-                  }
-
-                  if (windowManager == null) windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-                  dismissPopup()
-
-                  // FIX: Changed variable name from 'layoutParams' to 'windowParams' to avoid conflict with Button's layoutParams
-                  val windowParams = WindowManager.LayoutParams(
-                      WindowManager.LayoutParams.MATCH_PARENT,
-                      WindowManager.LayoutParams.WRAP_CONTENT,
-                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE,
-                      WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
-                      PixelFormat.TRANSLUCENT
-                  )
-                  windowParams.gravity = Gravity.CENTER
-
-                  val container = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setBackgroundColor(Color.parseColor("#1E1E2C"))
-                      setPadding(40, 40, 40, 40)
-                  }
-
-                  val titleTv = TextView(this).apply { text = "⚠️ Zeeshan अलर्ट"; setTextColor(Color.YELLOW); textSize = 20f; setTypeface(null, android.graphics.Typeface.BOLD) }
-                  val fileTv = TextView(this).apply { text = "फाइल: $originalName"; setTextColor(Color.WHITE); textSize = 15f; setPadding(0, 15, 0, 15) }
-                  val timerTv = TextView(this).apply { text = "समय बचा है: 5 सेकंड"; setTextColor(Color.RED); textSize = 18f; setTypeface(null, android.graphics.Typeface.BOLD) }
-                  
-                  val btnLayout = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 20, 0, 0) }
-                  
-                  // Now layoutParams here will point correctly to the button's layout
-                  val allowBtn = Button(this).apply { text = "ALLOW"; setBackgroundColor(Color.parseColor("#4CAF50")); setTextColor(Color.WHITE); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = 10 } }
-                  val blockBtn = Button(this).apply { text = "BLOCK"; setBackgroundColor(Color.parseColor("#F44336")); setTextColor(Color.WHITE); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) }
-
-                  btnLayout.addView(allowBtn); btnLayout.addView(blockBtn)
-                  container.addView(titleTv); container.addView(fileTv); container.addView(timerTv); container.addView(btnLayout)
-                  popupView = container
-
-                  allowBtn.setOnClickListener {
-                      countDownTimer?.cancel()
-                      quarantineFile.renameTo(File(quarantineFile.parent, originalName))
-                      dbHelper.addLog(originalName, "ALLOWED")
-                      dismissPopup()
-                  }
-
-                  blockBtn.setOnClickListener {
-                      countDownTimer?.cancel()
-                      quarantineFile.delete()
-                      dbHelper.addLog(originalName, "BLOCKED (User Action)")
-                      dismissPopup()
-                  }
-
-                  handler.post { windowManager?.addView(popupView, windowParams) } // Updated here
-
-                  countDownTimer = object : CountDownTimer(5000, 1000) {
-                      override fun onTick(millisUntilFinished: Long) { timerTv.text = "समय बचा है: ${millisUntilFinished / 1000 + 1} सेकंड (ऑटो-ब्लॉक)" }
-                      override fun onFinish() {
-                          quarantineFile.delete()
-                          dbHelper.addLog(originalName, "BLOCKED (5s Timeout)")
-                          dismissPopup()
-                      }
-                  }.start()
-              }
-
-              private fun dismissPopup() {
-                  handler.post {
-                      if (popupView != null && windowManager != null) {
-                          try { windowManager?.removeView(popupView) } catch (_: Exception) {}
-                          popupView = null
-                      }
-                  }
-              }
-
-              override fun onDestroy() {
-                  fileObserver?.stopWatching()
-                  countDownTimer?.cancel()
-                  dismissPopup()
-                  super.onDestroy()
-              }
-              override fun onBind(intent: Intent?): IBinder? = null
-          }
-          EOF
-
-      - name: 16 - Write HistoryActivity.kt
-        run: |
-          cat > app/src/main/java/com/zeeshan/app/HistoryActivity.kt <<'EOF'
-          package com.zeeshan.app
-
-          import android.graphics.Color
-          import android.os.Bundle
-          import android.widget.ArrayAdapter
-          import android.widget.Button
-          import android.widget.LinearLayout
-          import android.widget.ListView
-          import android.widget.Toast
-          import androidx.appcompat.app.AppCompatActivity
-
-          class HistoryActivity : AppCompatActivity() {
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-                  val layout = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setPadding(30, 30, 30, 30)
-                      setBackgroundColor(Color.parseColor("#0F172A"))
-                  }
-                  val backBtn = Button(this).apply { text = "← वापस जाएं"; setBackgroundColor(Color.parseColor("#334155")); setTextColor(Color.WHITE) }
-                  val listView = ListView(this).apply { setPadding(0, 20, 0, 0) }
-
-                  layout.addView(backBtn); layout.addView(listView)
-                  setContentView(layout)
-
-                  backBtn.setOnClickListener { finish() }
-
-                  val logs = DatabaseHelper(this).getAllLogs()
-                  if (logs.isEmpty()) {
-                      Toast.makeText(this, "कोई इतिहास नहीं है", Toast.LENGTH_SHORT).show()
-                  } else {
-                      listView.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, logs)
-                  }
-              }
-          }
-          EOF
-
-      - name: 17 - Write MainActivity.kt
-        run: |
-          cat > app/src/main/java/com/zeeshan/app/MainActivity.kt <<'EOF'
-          package com.zeeshan.app
-
-          import android.Manifest
-          import android.content.Intent
-          import android.content.pm.PackageManager
+          import android.animation.ObjectAnimator
           import android.graphics.Color
           import android.graphics.Typeface
-          import android.net.Uri
-          import android.os.Build
+          import android.graphics.drawable.GradientDrawable
           import android.os.Bundle
-          import android.os.Environment
-          import android.provider.Settings
           import android.view.Gravity
-          import android.widget.Button
-          import android.widget.LinearLayout
-          import android.widget.TextView
-          import android.widget.Toast
+          import android.view.View
+          import android.view.animation.OvershootInterpolator
+          import android.widget.*
           import androidx.appcompat.app.AppCompatActivity
 
           class MainActivity : AppCompatActivity() {
 
-              private lateinit var statusHeader: TextView
-              private lateinit var toggleButton: Button
-              private var isProtectionOn = false
+              private lateinit var splashView: LinearLayout
+              private lateinit var mainContainer: LinearLayout
+              private lateinit var chatLayout: LinearLayout
+              private lateinit var modeBanner: TextView
+              private lateinit var inputEditText: EditText
 
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
 
-                  val mainLayout = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
-                      setBackgroundColor(Color.parseColor("#0F172A")); setPadding(40, 60, 40, 60)
+                  val rootLayout = FrameLayout(this).apply {
+                      setBackgroundColor(Color.parseColor("#0284C7"))
                   }
 
-                  statusHeader = TextView(this).apply {
-                      text = "सुरक्षा बंद है"; setBackgroundColor(Color.parseColor("#DC2626"))
-                      setTextColor(Color.WHITE); textSize = 18f; typeface = Typeface.DEFAULT_BOLD
-                      gravity = Gravity.CENTER; setPadding(20, 30, 20, 30)
-                      layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                  // 1. Splash Screen
+                  splashView = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      gravity = Gravity.CENTER
+                      layoutParams = FrameLayout.LayoutParams(
+                          FrameLayout.LayoutParams.MATCH_PARENT,
+                          FrameLayout.LayoutParams.MATCH_PARENT
+                      )
+
+                      val logoImg = ImageView(context).apply {
+                          setImageResource(R.drawable.ic_z_3d_logo)
+                          layoutParams = LinearLayout.LayoutParams(220, 220)
+                      }
+
+                      val appTitle = TextView(context).apply {
+                          text = "ZAI"
+                          textSize = 36f
+                          setTypeface(null, Typeface.BOLD)
+                          setTextColor(Color.WHITE)
+                          setPadding(0, 20, 0, 0)
+                      }
+
+                      val subTitle = TextView(context).apply {
+                          text = "Next-Gen AI Assistant"
+                          textSize = 14f
+                          setTextColor(Color.parseColor("#E0F2FE"))
+                      }
+
+                      addView(logoImg)
+                      addView(appTitle)
+                      addView(subTitle)
                   }
 
-                  toggleButton = Button(this).apply {
-                      text = "TURN ON"; textSize = 20f; typeface = Typeface.DEFAULT_BOLD
-                      setTextColor(Color.WHITE); setBackgroundColor(Color.parseColor("#DC2626"))
-                      layoutParams = LinearLayout.LayoutParams(500, 500).apply { setMargins(0, 80, 0, 80) }
+                  // 2. Main App Container
+                  mainContainer = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      visibility = View.GONE
+                      setBackgroundColor(Color.parseColor("#F8FAFC"))
+                      layoutParams = FrameLayout.LayoutParams(
+                          FrameLayout.LayoutParams.MATCH_PARENT,
+                          FrameLayout.LayoutParams.MATCH_PARENT
+                      )
                   }
 
-                  val historyBtn = Button(this).apply {
-                      text = "📜 History"; textSize = 16f; setTextColor(Color.WHITE)
-                      setBackgroundColor(Color.parseColor("#2563EB")); setPadding(30, 20, 30, 20)
-                      layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                  // Top Header Bar
+                  val headerBar = LinearLayout(this).apply {
+                      orientation = LinearLayout.HORIZONTAL
+                      gravity = Gravity.CENTER_VERTICAL
+                      setPadding(35, 45, 35, 45)
+                      setBackgroundColor(Color.parseColor("#0284C7"))
+                      elevation = 12f
                   }
 
-                  val permBtn = Button(this).apply {
-                      text = "⚙️ ज़रूरी परमिशन दें"; textSize = 14f; setTextColor(Color.WHITE)
-                      setBackgroundColor(Color.parseColor("#5B21B6")); setPadding(20, 20, 20, 20)
-                      layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = 40 }
+                  val headerLogo = ImageView(this).apply {
+                      setImageResource(R.drawable.ic_z_3d_logo)
+                      layoutParams = LinearLayout.LayoutParams(80, 80)
                   }
 
-                  mainLayout.addView(statusHeader); mainLayout.addView(toggleButton)
-                  mainLayout.addView(historyBtn); mainLayout.addView(permBtn)
-                  setContentView(mainLayout)
+                  val headerTextLayout = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      setPadding(25, 0, 0, 0)
+                      layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                  }
 
-                  toggleButton.setOnClickListener { if (isProtectionOn) stopProtection() else startProtection() }
-                  historyBtn.setOnClickListener { startActivity(Intent(this, HistoryActivity::class.java)) }
-                  permBtn.setOnClickListener { requestAllPermissions() }
-              }
+                  val headerTitle = TextView(this).apply {
+                      text = "किसान (ZAI)"
+                      textSize = 19f
+                      setTypeface(null, Typeface.BOLD)
+                      setTextColor(Color.WHITE)
+                  }
 
-              private fun requestAllPermissions() {
-                  // Notification Permission (Android 13+)
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                      if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                          requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 102)
+                  val headerStatus = TextView(this).apply {
+                      text = "साधारण बातचीत व स्वास्थ्य सलाहकार"
+                      textSize = 11f
+                      setTextColor(Color.parseColor("#BAE6FD"))
+                  }
+
+                  headerTextLayout.addView(headerTitle)
+                  headerTextLayout.addView(headerStatus)
+
+                  // Round "Set" Button
+                  val setRoundButton = Button(this).apply {
+                      text = "Set"
+                      textSize = 13f
+                      setTypeface(null, Typeface.BOLD)
+                      setTextColor(Color.parseColor("#0284C7"))
+                      
+                      background = GradientDrawable().apply {
+                          shape = GradientDrawable.OVAL
+                          setColor(Color.WHITE)
+                      }
+                      layoutParams = LinearLayout.LayoutParams(110, 110)
+                      
+                      setOnClickListener { view ->
+                          openOptionMenu(view, headerStatus)
                       }
                   }
-                  // Overlay Permission
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-                      startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+
+                  headerBar.addView(headerLogo)
+                  headerBar.addView(headerTextLayout)
+                  headerBar.addView(setRoundButton)
+
+                  // Mode Indicator Banner
+                  modeBanner = TextView(this).apply {
+                      text = "💡 मोड: सामान्य बातचीत व स्वास्थ्य सम्बन्धी सवाल"
+                      textSize = 12f
+                      setTextColor(Color.parseColor("#0369A1"))
+                      setBackgroundColor(Color.parseColor("#E0F2FE"))
+                      setPadding(30, 15, 30, 15)
+                      gravity = Gravity.CENTER
                   }
-                  // All Files Access (Android 11+)
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
-                      startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")))
-                  } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-                      if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                          requestPermissions(arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), 101)
+
+                  // Chat Message Scroll View
+                  val scrollView = ScrollView(this).apply {
+                      layoutParams = LinearLayout.LayoutParams(
+                          LinearLayout.LayoutParams.MATCH_PARENT,
+                          0,
+                          1f
+                      )
+                      isFillViewport = true
+                  }
+
+                  chatLayout = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      setPadding(30, 30, 30, 30)
+                  }
+
+                  addMessageBubble("नमस्ते! मैं ZAI हूँ। आप मुझसे कोई भी सवाल पूछ सकते हैं या स्वास्थ्य/बीमारी सम्बन्धी जानकारी ले सकते हैं। ऊपर गोल 'Set' बटन दबाकर आप वीडियो, इमेज या कोड मोड चुन सकते हैं।", isUser = false)
+
+                  scrollView.addView(chatLayout)
+
+                  // Bottom Input Dock
+                  val inputDock = LinearLayout(this).apply {
+                      orientation = LinearLayout.HORIZONTAL
+                      gravity = Gravity.CENTER_VERTICAL
+                      setPadding(20, 20, 20, 20)
+                      setBackgroundColor(Color.WHITE)
+                      elevation = 16f
+                  }
+
+                  val micBtn = createIconButton("🎙️") {
+                      Toast.makeText(this, "आवाज रिकॉर्डिंग मोड ऑन", Toast.LENGTH_SHORT).show()
+                  }
+
+                  val galleryBtn = createIconButton("🖼️") {
+                      Toast.makeText(this, "गैलरी से फोटो चुनें (AI एनालिसिस हेतु)", Toast.LENGTH_SHORT).show()
+                  }
+
+                  val videoBtn = createIconButton("🎥") {
+                      Toast.makeText(this, "वीडियो चुनें (AI कहानी/समस्या निवारण हेतु)", Toast.LENGTH_SHORT).show()
+                  }
+
+                  inputEditText = EditText(this).apply {
+                      hint = "यहाँ संदेश या सवाल लिखें..."
+                      textSize = 14f
+                      setHintTextColor(Color.GRAY)
+                      setTextColor(Color.BLACK)
+                      setPadding(30, 20, 30, 20)
+                      background = GradientDrawable().apply {
+                          setColor(Color.parseColor("#F1F5F9"))
+                          cornerRadius = 40f
+                      }
+                      layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                          setMargins(10, 0, 10, 0)
                       }
                   }
-              }
 
-              private fun checkPermissionsReady(): Boolean {
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) return false
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) return false
-                  return true
-              }
+                  val sendBtn = Button(this).apply {
+                      text = "➔"
+                      textSize = 18f
+                      setTextColor(Color.WHITE)
+                      background = GradientDrawable().apply {
+                          shape = GradientDrawable.OVAL
+                          setColor(Color.parseColor("#0284C7"))
+                      }
+                      layoutParams = LinearLayout.LayoutParams(110, 110)
 
-              private fun startProtection() {
-                  if (!checkPermissionsReady()) {
-                      Toast.makeText(this, "कृपया पहले 'ज़रूरी परमिशन दें' बटन पर क्लिक करें", Toast.LENGTH_LONG).show()
-                      return
+                      setOnClickListener {
+                          val txt = inputEditText.text.toString().trim()
+                          if (txt.isNotEmpty()) {
+                              addMessageBubble(txt, isUser = true)
+                              inputEditText.text.clear()
+                          }
+                      }
                   }
-                  val serviceIntent = Intent(this, SecurityService::class.java)
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(serviceIntent) else startService(serviceIntent)
-                  
-                  isProtectionOn = true
-                  statusHeader.text = "सुरक्षा चालू है"; statusHeader.setBackgroundColor(Color.parseColor("#16A34A"))
-                  toggleButton.text = "TURN OFF"; toggleButton.setBackgroundColor(Color.parseColor("#16A34A"))
+
+                  inputDock.addView(micBtn)
+                  inputDock.addView(galleryBtn)
+                  inputDock.addView(videoBtn)
+                  inputDock.addView(inputEditText)
+                  inputDock.addView(sendBtn)
+
+                  mainContainer.addView(headerBar)
+                  mainContainer.addView(modeBanner)
+                  mainContainer.addView(scrollView)
+                  mainContainer.addView(inputDock)
+
+                  rootLayout.addView(splashView)
+                  rootLayout.addView(mainContainer)
+
+                  setContentView(rootLayout)
+
+                  runSplashAnimation()
               }
 
-              private fun stopProtection() {
-                  stopService(Intent(this, SecurityService::class.java))
-                  isProtectionOn = false
-                  statusHeader.text = "सुरक्षा बंद है"; statusHeader.setBackgroundColor(Color.parseColor("#DC2626"))
-                  toggleButton.text = "TURN ON"; toggleButton.setBackgroundColor(Color.parseColor("#DC2626"))
+              private fun openOptionMenu(view: View, statusText: TextView) {
+                  val popup = PopupMenu(this, view)
+                  popup.menu.add("🎥 वीडियो जनरेट (Video Generate)")
+                  popup.menu.add("🎨 इमेज जनरेट (Image Generate)")
+                  popup.menu.add("💻 कोड जनरेट (Code Generate)")
+                  popup.menu.add("💬 सामान्य बातचीत व स्वास्थ्य (General)")
+
+                  popup.setOnMenuItemClickListener { item ->
+                      when (item.title.toString()) {
+                          "🎥 वीडियो जनरेट (Video Generate)" -> {
+                              modeBanner.text = "🎬 मोड: AI वीडियो जनरेटर मोड सक्रिय"
+                              statusText.text = "वीडियो जनरेशन मोड"
+                              addSystemNotice("वीडियो जनरेट चैट मोड चालू हो गया है। प्रॉम्ट लिखें या वीडियो अपलोड करें।")
+                          }
+                          "🎨 इमेज जनरेट (Image Generate)" -> {
+                              modeBanner.text = "🎨 मोड: AI फोटो/इमेज जनरेटर मोड सक्रिय"
+                              statusText.text = "इमेज जनरेशन मोड"
+                              addSystemNotice("इमेज जनरेट मोड चालू हो गया है। अपनी पसंद का फोटो वर्णन लिखें।")
+                          }
+                          "💻 कोड जनरेट (Code Generate)" -> {
+                              modeBanner.text = "💻 मोड: प्रोग्रामिंग व कोड जनरेटर सक्रिय"
+                              statusText.text = "कोडिंग मोड"
+                              addSystemNotice("कोड राइटिंग मोड चालू हो गया है। अपनी भाषा या लॉजिक बताएं।")
+                          }
+                          else -> {
+                              modeBanner.text = "💡 मोड: सामान्य बातचीत व स्वास्थ्य सम्बन्धी सवाल"
+                              statusText.text = "साधारण बातचीत व स्वास्थ्य सलाहकार"
+                              addSystemNotice("सामान्य बातचीत व मेडिकल हेल्प मोड सक्रिय है।")
+                          }
+                      }
+                      true
+                  }
+                  popup.show()
+              }
+
+              private fun addMessageBubble(text: String, isUser: Boolean) {
+                  val bubble = TextView(this).apply {
+                      this.text = text
+                      textSize = 14f
+                      setPadding(35, 25, 35, 25)
+                      elevation = 4f
+
+                      if (isUser) {
+                          setTextColor(Color.WHITE)
+                          background = GradientDrawable().apply {
+                              setColor(Color.parseColor("#0284C7"))
+                              cornerRadii = floatArrayOf(40f, 40f, 0f, 40f, 40f, 40f, 40f, 40f)
+                          }
+                      } else {
+                          setTextColor(Color.parseColor("#1E293B"))
+                          background = GradientDrawable().apply {
+                              setColor(Color.WHITE)
+                              cornerRadii = floatArrayOf(0f, 40f, 40f, 40f, 40f, 40f, 40f, 40f)
+                          }
+                      }
+                  }
+
+                  val params = LinearLayout.LayoutParams(
+                      LinearLayout.LayoutParams.WRAP_CONTENT,
+                      LinearLayout.LayoutParams.WRAP_CONTENT
+                  ).apply {
+                      gravity = if (isUser) Gravity.END else Gravity.START
+                      setMargins(0, 15, 0, 15)
+                  }
+
+                  chatLayout.addView(bubble, params)
+              }
+
+              private fun addSystemNotice(notice: String) {
+                  val noticeView = TextView(this).apply {
+                      text = notice
+                      textSize = 11f
+                      setTextColor(Color.GRAY)
+                      gravity = Gravity.CENTER
+                      setPadding(0, 15, 0, 15)
+                  }
+                  chatLayout.addView(noticeView)
+              }
+
+              private fun createIconButton(icon: String, onClick: () -> Unit): Button {
+                  return Button(this).apply {
+                      text = icon
+                      textSize = 16f
+                      setBackgroundColor(Color.TRANSPARENT)
+                      layoutParams = LinearLayout.LayoutParams(90, 90)
+                      setOnClickListener { onClick() }
+                  }
+              }
+
+              private fun runSplashAnimation() {
+                  val scaleX = ObjectAnimator.ofFloat(splashView, "scaleX", 0.8f, 1.1f, 1.0f).setDuration(1200)
+                  val scaleY = ObjectAnimator.ofFloat(splashView, "scaleY", 0.8f, 1.1f, 1.0f).setDuration(1200)
+                  scaleX.interpolator = OvershootInterpolator()
+                  scaleY.interpolator = OvershootInterpolator()
+                  scaleX.start()
+                  scaleY.start()
+
+                  splashView.postDelayed({
+                      splashView.animate().alpha(0f).setDuration(400).withEndAction {
+                          splashView.visibility = View.GONE
+                          mainContainer.visibility = View.VISIBLE
+                          mainContainer.alpha = 0f
+                          mainContainer.animate().alpha(1f).setDuration(400).start()
+                      }.start()
+                  }, 2200)
               }
           }
           EOF
 
-      - name: 18 - Build APK
+      - name: 15 - Build APK
         run: gradle :app:assembleDebug --no-daemon
 
-      - name: 19 - Upload APK
+      - name: 16 - Upload ZAI APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Zeeshan-Security-APK
+          name: ZAI-App-APK
           path: app/build/outputs/apk/debug/app-debug.apk
 
