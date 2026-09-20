@@ -827,7 +827,7 @@ jobs:
                   val topSpeedBtn = findViewById<TextView>(R.id.btn_top_speed)
                   val pillSpeedBtn = findViewById<TextView>(R.id.pill_speed)
                   val updateSpeed = {
-                      val speeds = floatArrayOf(0.5f, 1.0f, 1.5f, 2.0f)
+                      val speeds = arrayOf(0.5f, 1.0f, 1.5f, 2.0f)
                       var idx = speeds.indexOf(currentSpeed) + 1
                       if (idx >= speeds.size) idx = 0
                       currentSpeed = speeds[idx]
@@ -1070,4 +1070,3 @@ jobs:
         with:
           name: Zeeshan-Vedio-Pyle-Pro-APK
           path: app/build/outputs/apk/debug/app-debug.apk
-
