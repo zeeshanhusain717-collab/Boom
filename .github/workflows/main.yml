@@ -92,19 +92,15 @@ jobs:
               implementation "com.google.android.material:material:1.12.0"
               implementation "androidx.constraintlayout:constraintlayout:2.1.4"
               
-              // RecyclerView for Smooth Lists
               implementation "androidx.recyclerview:recyclerview:1.3.2"
               
-              // Coroutines for Background Tasks (No Lag)
               implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
               implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.7.0"
               
-              // Media3 ExoPlayer Engine
               implementation "androidx.media3:media3-exoplayer:1.3.1"
               implementation "androidx.media3:media3-ui:1.3.1"
               implementation "androidx.media3:media3-common:1.3.1"
               
-              // Glide for Video Thumbnails
               implementation "com.github.bumptech.glide:glide:4.16.0"
           }
           EOF
@@ -156,7 +152,6 @@ jobs:
           </shape>
           EOF
 
-          # Clean XML for MainActivity with RecyclerView
           cat > app/src/main/res/layout/activity_main.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -227,7 +222,6 @@ jobs:
                       android:textColor="#FFFFFF" android:textSize="14sp" android:textStyle="bold" android:background="@drawable/bg_3d_button" android:padding="8dp" android:layout_marginStart="8dp"/>
               </LinearLayout>
 
-              <!-- Pill Menu (Removed redundant zoom and speed) -->
               <LinearLayout android:id="@+id/floating_pill" android:layout_width="wrap_content" android:layout_height="wrap_content"
                   android:layout_below="@id/top_bar" android:layout_centerHorizontal="true" android:layout_marginTop="16dp"
                   android:background="@drawable/bg_3d_pill" android:padding="8dp" android:gravity="center">
@@ -256,7 +250,6 @@ jobs:
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
-              <!-- Android 13+ support fixed -->
               <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
               <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
@@ -567,9 +560,10 @@ jobs:
                   gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
                       override fun onScroll(e1: MotionEvent?, e2: MotionEvent, dX: Float, dY: Float): Boolean {
                           if (e1 == null || isLocked) return false
-                          if (abs(dX) > abs(dY)) { // Seek
+                          if (abs(dX) > abs(dY)) { // Seek (Math Type Mismatch Fixed Here)
                               player?.let { p ->
-                                  val newPos = (p.currentPosition - (dX * 150L)).coerceIn(0, p.duration)
+                                  val offset = (dX * 150f).toLong()
+                                  val newPos = (p.currentPosition - offset).coerceIn(0L, p.duration)
                                   p.seekTo(newPos)
                                   showHud(String.format("%02d:%02d", (newPos/1000)/60, (newPos/1000)%60))
                               }
@@ -647,4 +641,3 @@ jobs:
         with:
           name: Zeeshan-Vedio-Pyle-Pro-APK
           path: app/build/outputs/apk/debug/app-debug.apk
-
