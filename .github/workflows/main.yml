@@ -38,7 +38,6 @@ jobs:
           mkdir -p app/src/main/res/drawable
           mkdir -p app/src/main/res/layout
 
-          # gradle.properties
           cat > gradle.properties <<'EOF'
           org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8
           android.useAndroidX=true
@@ -46,7 +45,6 @@ jobs:
           org.gradle.daemon=false
           EOF
 
-          # settings.gradle
           cat > settings.gradle <<'EOF'
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement {
@@ -57,7 +55,6 @@ jobs:
           include(":app")
           EOF
 
-          # Root build.gradle
           cat > build.gradle <<'EOF'
           plugins {
               id "com.android.application" version "8.2.2" apply false
@@ -65,7 +62,6 @@ jobs:
           }
           EOF
 
-          # App build.gradle
           cat > app/build.gradle <<'EOF'
           plugins {
               id "com.android.application"
@@ -78,13 +74,11 @@ jobs:
                   applicationId "com.zeeshan.videopyle"
                   minSdk 24
                   targetSdk 34
-                  versionCode 4
-                  versionName "4.0.MX"
+                  versionCode 5
+                  versionName "5.0.PRO"
               }
               buildTypes { 
-                  release { 
-                      minifyEnabled false 
-                  } 
+                  release { minifyEnabled false } 
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
@@ -97,6 +91,13 @@ jobs:
               implementation "androidx.appcompat:appcompat:1.7.0"
               implementation "com.google.android.material:material:1.12.0"
               implementation "androidx.constraintlayout:constraintlayout:2.1.4"
+              
+              // RecyclerView for Smooth Lists
+              implementation "androidx.recyclerview:recyclerview:1.3.2"
+              
+              // Coroutines for Background Tasks (No Lag)
+              implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
+              implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.7.0"
               
               // Media3 ExoPlayer Engine
               implementation "androidx.media3:media3-exoplayer:1.3.1"
@@ -112,7 +113,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # strings.xml
           cat > app/src/main/res/values/strings.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -120,21 +120,16 @@ jobs:
           </resources>
           EOF
 
-          # White & Chocolate App Icon
           cat > app/src/main/res/drawable/ic_launcher.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="512dp"
-              android:height="512dp"
-              android:viewportWidth="512"
-              android:viewportHeight="512">
+              android:width="512dp" android:height="512dp" android:viewportWidth="512" android:viewportHeight="512">
               <path android:pathData="M256,0 C114.6,0 0,114.6 0,256 C0,397.4 114.6,512 256,512 C397.4,512 512,397.4 512,256 C512,114.6 397.4,0 256,0 Z" android:fillColor="#FFFFFF"/>
               <path android:pathData="M256,16 C123.4,16 16,123.4 16,256 C16,388.6 123.4,496 256,496 C388.6,496 496,388.6 496,256 C496,123.4 388.6,16 256,16 Z" android:fillColor="#4E342E"/>
               <path android:pathData="M160,160 L352,160 L200,320 L352,320 L352,352 L160,352 L312,192 L160,192 Z" android:fillColor="#FFFFFF"/>
           </vector>
           EOF
 
-          # 3D Pill Background
           cat > app/src/main/res/drawable/bg_3d_pill.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
@@ -144,7 +139,6 @@ jobs:
           </shape>
           EOF
 
-          # 3D Panel Background (Top/Bottom Bars)
           cat > app/src/main/res/drawable/bg_3d_panel.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
@@ -153,7 +147,6 @@ jobs:
           </shape>
           EOF
 
-          # 3D Button Background
           cat > app/src/main/res/drawable/bg_3d_button.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
@@ -163,348 +156,127 @@ jobs:
           </shape>
           EOF
 
-          # Activity Player Layout
+          # Clean XML for MainActivity with RecyclerView
+          cat > app/src/main/res/layout/activity_main.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent" android:layout_height="match_parent"
+              android:orientation="vertical" android:background="#F7F5F4">
+              <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                  android:background="#4E342E" android:padding="16dp" android:elevation="8dp">
+                  <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                      android:text="Zeeshan Vedio Pyle" android:textColor="#FFFFFF" android:textSize="22sp" android:textStyle="bold"/>
+              </LinearLayout>
+              <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                  android:background="#3E2723" android:elevation="4dp" android:orientation="horizontal">
+                  <TextView android:id="@+id/tab_folders" android:layout_width="0dp" android:layout_height="wrap_content"
+                      android:layout_weight="1" android:text="FOLDERS" android:textColor="#FFFFFF" android:gravity="center"
+                      android:paddingVertical="12dp" android:textStyle="bold" android:textSize="14sp"/>
+                  <TextView android:id="@+id/tab_videos" android:layout_width="0dp" android:layout_height="wrap_content"
+                      android:layout_weight="1" android:text="ALL VIDEOS" android:textColor="#D7CCC8" android:gravity="center"
+                      android:paddingVertical="12dp" android:textStyle="bold" android:textSize="14sp"/>
+              </LinearLayout>
+              <androidx.recyclerview.widget.RecyclerView
+                  android:id="@+id/recycler_view" android:layout_width="match_parent" android:layout_height="match_parent"
+                  android:padding="8dp" android:clipToPadding="false"/>
+          </LinearLayout>
+          EOF
+
           cat > app/src/main/res/layout/activity_player.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
               xmlns:app="http://schemas.android.com/apk/res-auto"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:background="#000000">
+              android:layout_width="match_parent" android:layout_height="match_parent" android:background="#000000">
 
-              <!-- Player View: Wraps Exoplayer -->
               <androidx.media3.ui.PlayerView
-                  android:id="@+id/player_view"
-                  android:layout_width="match_parent"
-                  android:layout_height="match_parent"
-                  app:controller_layout_id="@layout/exo_player_control_view"
-                  app:show_buffering="when_playing"
-                  app:use_controller="true"/>
+                  android:id="@+id/player_view" android:layout_width="match_parent" android:layout_height="match_parent"
+                  app:controller_layout_id="@layout/exo_player_control_view" app:show_buffering="when_playing" app:use_controller="true"/>
 
-              <!-- MX Style Gesture Progress HUD -->
               <LinearLayout
-                  android:id="@+id/hud_layout"
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:layout_centerInParent="true"
-                  android:background="@drawable/bg_3d_pill"
-                  android:paddingHorizontal="32dp"
-                  android:paddingVertical="16dp"
-                  android:visibility="gone"
-                  android:elevation="10dp"
-                  android:gravity="center">
-
-                  <TextView
-                      android:id="@+id/hud_text"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:text="Volume: 100%"
-                      android:textColor="#FFFFFF"
-                      android:textSize="20sp"
-                      android:textStyle="bold"/>
+                  android:id="@+id/hud_layout" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                  android:layout_centerInParent="true" android:background="@drawable/bg_3d_pill"
+                  android:paddingHorizontal="32dp" android:paddingVertical="16dp" android:visibility="gone"
+                  android:elevation="10dp" android:gravity="center">
+                  <TextView android:id="@+id/hud_text" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                      android:textColor="#FFFFFF" android:textSize="20sp" android:textStyle="bold"/>
               </LinearLayout>
               
-              <!-- Screen Lock Overlay Button -->
               <ImageButton
-                  android:id="@+id/btn_unlock"
-                  android:layout_width="72dp"
-                  android:layout_height="72dp"
-                  android:layout_centerVertical="true"
-                  android:layout_alignParentStart="true"
-                  android:layout_marginStart="32dp"
-                  android:background="@drawable/bg_3d_pill"
-                  android:src="@android:drawable/ic_secure"
-                  android:tint="#FFFFFF"
-                  android:visibility="gone"
-                  android:elevation="12dp"
-                  android:padding="16dp"/>
-
+                  android:id="@+id/btn_unlock" android:layout_width="72dp" android:layout_height="72dp"
+                  android:layout_centerVertical="true" android:layout_alignParentStart="true" android:layout_marginStart="32dp"
+                  android:background="@drawable/bg_3d_pill" android:src="@android:drawable/ic_secure"
+                  android:tint="#FFFFFF" android:visibility="gone" android:elevation="12dp" android:padding="16dp"/>
           </RelativeLayout>
           EOF
 
-          # MX Player Style ExoPlayer Control View
           cat > app/src/main/res/layout/exo_player_control_view.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:id="@+id/control_root"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:background="#1A000000">
-
-              <!-- A. Top Bar -->
-              <LinearLayout
-                  android:id="@+id/top_bar"
-                  android:layout_width="match_parent"
-                  android:layout_height="wrap_content"
-                  android:orientation="horizontal"
-                  android:padding="12dp"
-                  android:elevation="6dp"
-                  android:gravity="center_vertical"
-                  android:background="@drawable/bg_3d_panel">
-
-                  <ImageButton
-                      android:id="@+id/btn_back"
-                      android:layout_width="48dp"
-                      android:layout_height="48dp"
-                      android:background="?attr/selectableItemBackgroundBorderless"
-                      android:src="@android:drawable/ic_menu_revert"
-                      android:tint="#FFFFFF" />
-
-                  <TextView
-                      android:id="@+id/tv_title"
-                      android:layout_width="0dp"
-                      android:layout_height="wrap_content"
-                      android:layout_weight="1"
-                      android:text="Video Title"
-                      android:textColor="#FFFFFF"
-                      android:textSize="18sp"
-                      android:textStyle="bold"
-                      android:layout_marginHorizontal="12dp"
-                      android:maxLines="1"
-                      android:ellipsize="end"
-                      android:shadowColor="#000000"
-                      android:shadowDx="2"
-                      android:shadowDy="2"
-                      android:shadowRadius="4"/>
-
-                  <TextView
-                      android:id="@+id/btn_audio_track"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:text="🎵"
-                      android:textSize="22sp"
-                      android:padding="8dp"
-                      android:background="?attr/selectableItemBackgroundBorderless"/>
-
-                  <TextView
-                      android:id="@+id/btn_subtitle"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:text="💬"
-                      android:textSize="22sp"
-                      android:padding="8dp"
-                      android:layout_marginStart="8dp"
-                      android:background="?attr/selectableItemBackgroundBorderless"/>
-                      
-                  <TextView
-                      android:id="@+id/btn_decoder"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:text="HW"
-                      android:textColor="#FFFFFF"
-                      android:textSize="14sp"
-                      android:textStyle="bold"
-                      android:background="@drawable/bg_3d_button"
-                      android:paddingHorizontal="10dp"
-                      android:paddingVertical="4dp"
-                      android:layout_marginStart="12dp"/>
-                      
-                  <TextView
-                      android:id="@+id/btn_top_speed"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:text="1.0x"
-                      android:textColor="#FFFFFF"
-                      android:textSize="14sp"
-                      android:textStyle="bold"
-                      android:background="@drawable/bg_3d_button"
-                      android:paddingHorizontal="10dp"
-                      android:paddingVertical="4dp"
-                      android:layout_marginStart="12dp"/>
+              android:id="@+id/control_root" android:layout_width="match_parent" android:layout_height="match_parent" android:background="#1A000000">
+              <LinearLayout android:id="@+id/top_bar" android:layout_width="match_parent" android:layout_height="wrap_content"
+                  android:orientation="horizontal" android:padding="12dp" android:background="@drawable/bg_3d_panel" android:gravity="center_vertical">
+                  <ImageButton android:id="@+id/btn_back" android:layout_width="48dp" android:layout_height="48dp"
+                      android:background="?attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_menu_revert" android:tint="#FFFFFF"/>
+                  <TextView android:id="@+id/tv_title" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                      android:textColor="#FFFFFF" android:textSize="18sp" android:textStyle="bold" android:layout_marginHorizontal="12dp" android:maxLines="1" android:ellipsize="end"/>
+                  <TextView android:id="@+id/btn_audio_track" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🎵" android:textSize="22sp" android:padding="8dp"/>
+                  <TextView android:id="@+id/btn_subtitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="💬" android:textSize="22sp" android:padding="8dp"/>
+                  <TextView android:id="@+id/btn_decoder" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="HW"
+                      android:textColor="#FFFFFF" android:textSize="14sp" android:textStyle="bold" android:background="@drawable/bg_3d_button" android:padding="8dp" android:layout_marginStart="8dp"/>
+                  <TextView android:id="@+id/btn_top_speed" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="1.0x"
+                      android:textColor="#FFFFFF" android:textSize="14sp" android:textStyle="bold" android:background="@drawable/bg_3d_button" android:padding="8dp" android:layout_marginStart="8dp"/>
               </LinearLayout>
 
-              <!-- B. Floating Pill Bar -->
-              <LinearLayout
-                  android:id="@+id/floating_pill"
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:layout_below="@id/top_bar"
-                  android:layout_centerHorizontal="true"
-                  android:layout_marginTop="16dp"
-                  android:orientation="horizontal"
-                  android:background="@drawable/bg_3d_pill"
-                  android:padding="8dp"
-                  android:elevation="8dp"
-                  android:gravity="center">
-                  
-                  <TextView
-                      android:id="@+id/pill_speed"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:text="1.0X"
-                      android:textColor="#FFFFFF"
-                      android:textStyle="bold"
-                      android:padding="12dp"/>
-                      
-                  <TextView
-                      android:id="@+id/pill_zoom"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:text="[ ]"
-                      android:textColor="#FFFFFF"
-                      android:textStyle="bold"
-                      android:padding="12dp"/>
-                      
-                  <TextView
-                      android:id="@+id/pill_boost"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:text="🎧"
-                      android:textSize="20sp"
-                      android:padding="12dp"/>
-                      
-                  <TextView
-                      android:id="@+id/pill_rotate"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:text="🔄"
-                      android:textSize="20sp"
-                      android:padding="12dp"/>
-                      
-                  <TextView
-                      android:id="@+id/pill_collapse"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:text=">"
-                      android:textColor="#FFFFFF"
-                      android:textStyle="bold"
-                      android:textSize="18sp"
-                      android:padding="12dp"/>
+              <!-- Pill Menu (Removed redundant zoom and speed) -->
+              <LinearLayout android:id="@+id/floating_pill" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                  android:layout_below="@id/top_bar" android:layout_centerHorizontal="true" android:layout_marginTop="16dp"
+                  android:background="@drawable/bg_3d_pill" android:padding="8dp" android:gravity="center">
+                  <TextView android:id="@+id/pill_boost" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🎧" android:textSize="20sp" android:padding="12dp"/>
+                  <TextView android:id="@+id/pill_rotate" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🔄" android:textSize="20sp" android:padding="12dp"/>
+                  <TextView android:id="@+id/pill_collapse" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text=">" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="18sp" android:padding="12dp"/>
               </LinearLayout>
 
-              <!-- Main Play/Pause (Center) -->
-              <LinearLayout
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:layout_centerInParent="true"
-                  android:orientation="horizontal"
-                  android:gravity="center">
-
-                  <ImageButton
-                      android:id="@id/exo_prev"
-                      android:layout_width="64dp"
-                      android:layout_height="64dp"
-                      android:background="?attr/selectableItemBackgroundBorderless"
-                      android:src="@android:drawable/ic_media_previous"
-                      android:tint="#FFFFFF"/>
-
-                  <ImageButton
-                      android:id="@id/exo_play_pause"
-                      android:layout_width="80dp"
-                      android:layout_height="80dp"
-                      android:layout_marginHorizontal="32dp"
-                      android:background="?attr/selectableItemBackgroundBorderless"
-                      android:src="@android:drawable/ic_media_play"
-                      android:tint="#FFFFFF"/>
-
-                  <ImageButton
-                      android:id="@id/exo_next"
-                      android:layout_width="64dp"
-                      android:layout_height="64dp"
-                      android:background="?attr/selectableItemBackgroundBorderless"
-                      android:src="@android:drawable/ic_media_next"
-                      android:tint="#FFFFFF"/>
+              <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_centerInParent="true">
+                  <ImageButton android:id="@id/exo_prev" android:layout_width="64dp" android:layout_height="64dp" android:background="?attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_media_previous" android:tint="#FFFFFF"/>
+                  <ImageButton android:id="@id/exo_play_pause" android:layout_width="80dp" android:layout_height="80dp" android:layout_marginHorizontal="32dp" android:background="?attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_media_play" android:tint="#FFFFFF"/>
+                  <ImageButton android:id="@id/exo_next" android:layout_width="64dp" android:layout_height="64dp" android:background="?attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_media_next" android:tint="#FFFFFF"/>
               </LinearLayout>
 
-              <!-- C. Bottom Controls & Timeline -->
-              <LinearLayout
-                  android:layout_width="match_parent"
-                  android:layout_height="wrap_content"
-                  android:layout_alignParentBottom="true"
-                  android:orientation="horizontal"
-                  android:background="@drawable/bg_3d_panel"
-                  android:padding="12dp"
-                  android:elevation="6dp"
-                  android:gravity="center_vertical">
-                  
-                  <!-- Screen Lock Button -->
-                  <ImageButton
-                      android:id="@+id/btn_lock"
-                      android:layout_width="40dp"
-                      android:layout_height="40dp"
-                      android:background="?attr/selectableItemBackgroundBorderless"
-                      android:src="@android:drawable/ic_secure"
-                      android:tint="#FFFFFF"
-                      android:layout_marginEnd="8dp"/>
-
-                  <TextView
-                      android:id="@id/exo_position"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:textColor="#FFFFFF"
-                      android:textStyle="bold"
-                      android:textSize="14sp"/>
-
-                  <androidx.media3.ui.DefaultTimeBar
-                      android:id="@id/exo_progress"
-                      android:layout_width="0dp"
-                      android:layout_height="wrap_content"
-                      android:layout_weight="1"
-                      android:paddingHorizontal="12dp"/>
-
-                  <TextView
-                      android:id="@id/exo_duration"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:textColor="#FFFFFF"
-                      android:textStyle="bold"
-                      android:textSize="14sp"
-                      android:paddingEnd="12dp"/>
-
-                  <TextView
-                      android:id="@+id/btn_aspect_ratio"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:text="⛶"
-                      android:textColor="#FFFFFF"
-                      android:textSize="24sp"
-                      android:background="?attr/selectableItemBackgroundBorderless"
-                      android:padding="4dp"/>
-
+              <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_alignParentBottom="true"
+                  android:background="@drawable/bg_3d_panel" android:padding="12dp" android:gravity="center_vertical">
+                  <ImageButton android:id="@+id/btn_lock" android:layout_width="40dp" android:layout_height="40dp" android:background="?attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_secure" android:tint="#FFFFFF" android:layout_marginEnd="8dp"/>
+                  <TextView android:id="@id/exo_position" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="14sp"/>
+                  <androidx.media3.ui.DefaultTimeBar android:id="@id/exo_progress" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:paddingHorizontal="12dp"/>
+                  <TextView android:id="@id/exo_duration" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="14sp" android:paddingEnd="12dp"/>
+                  <TextView android:id="@+id/btn_aspect_ratio" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="⛶" android:textColor="#FFFFFF" android:textSize="24sp" android:background="?attr/selectableItemBackgroundBorderless" android:padding="4dp"/>
               </LinearLayout>
-
           </RelativeLayout>
           EOF
 
-          # AndroidManifest.xml
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              xmlns:tools="http://schemas.android.com/tools">
-              
-              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+              <!-- Android 13+ support fixed -->
               <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
               <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
               <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
-              <application
-                  android:allowBackup="false" 
-                  android:label="@string/app_name"
-                  android:icon="@drawable/ic_launcher"
-                  android:roundIcon="@drawable/ic_launcher"
-                  android:supportsRtl="true"
-                  android:theme="@style/Theme.AppCompat.Light.NoActionBar">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:configChanges="orientation|screenSize|keyboardHidden">
+              <application android:allowBackup="false" android:label="@string/app_name" android:icon="@drawable/ic_launcher"
+                  android:roundIcon="@drawable/ic_launcher" android:supportsRtl="true" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+                  <activity android:name=".MainActivity" android:exported="true" android:configChanges="orientation|screenSize|keyboardHidden">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
-                  <activity
-                      android:name=".PlayerActivity"
-                      android:exported="false"
-                      android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
-                      android:theme="@style/Theme.AppCompat.NoActionBar"/>
+                  <activity android:name=".PlayerActivity" android:exported="false" android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden" android:theme="@style/Theme.AppCompat.NoActionBar"/>
               </application>
           </manifest>
           EOF
 
-      - name: Write Kotlin Source Code (MainActivity & PlayerActivity)
+      - name: Write Kotlin Source Code
         run: |
-          # Write MainActivity.kt (Unchanged Logic, added slight 3D elevation to cards)
           cat > app/src/main/java/com/zeeshan/videopyle/MainActivity.kt <<'EOF'
           package com.zeeshan.videopyle
 
@@ -513,8 +285,6 @@ jobs:
           import android.content.Intent
           import android.content.pm.PackageManager
           import android.graphics.Color
-          import android.graphics.Typeface
-          import android.graphics.drawable.GradientDrawable
           import android.net.Uri
           import android.os.Build
           import android.os.Bundle
@@ -528,196 +298,138 @@ jobs:
           import androidx.appcompat.app.AppCompatActivity
           import androidx.core.app.ActivityCompat
           import androidx.core.content.ContextCompat
+          import androidx.lifecycle.lifecycleScope
+          import androidx.recyclerview.widget.LinearLayoutManager
+          import androidx.recyclerview.widget.RecyclerView
           import com.bumptech.glide.Glide
+          import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.launch
+          import kotlinx.coroutines.withContext
           import java.io.File
           import java.util.concurrent.TimeUnit
 
-          data class VideoModel(
-              val id: Long, val title: String, val path: String, val duration: Long, val size: Long, val uri: Uri, val folderName: String
-          )
+          data class VideoModel(val id: Long, val title: String, val path: String, val duration: Long, val size: Long, val uri: Uri, val folderName: String)
 
           class MainActivity : AppCompatActivity() {
-              private lateinit var mainContainer: LinearLayout
-              private lateinit var videoListView: LinearLayout
-              private lateinit var tabFoldersBtn: TextView
-              private lateinit var tabVideosBtn: TextView
+              private lateinit var recyclerView: RecyclerView
+              private lateinit var tabFolders: TextView
+              private lateinit var tabVideos: TextView
               
-              private val videoList = ArrayList<VideoModel>()
-              private val folderMap = HashMap<String, ArrayList<VideoModel>>()
-              private var currentTabIsFolders = true
+              private var videoList = ArrayList<VideoModel>()
+              private var folderList = ArrayList<Pair<String, ArrayList<VideoModel>>>()
+              private var isFolderTab = true
 
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
-                  mainContainer = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setBackgroundColor(Color.parseColor("#F7F5F4"))
-                      layoutParams = ViewGroup.LayoutParams(-1, -1)
-                  }
-                  val header = LinearLayout(this).apply {
-                      orientation = LinearLayout.HORIZONTAL
-                      gravity = Gravity.CENTER_VERTICAL
-                      setPadding(40, 40, 40, 40)
-                      setBackgroundColor(Color.parseColor("#4E342E"))
-                      elevation = 12f
-                  }
-                  val titleTv = TextView(this).apply {
-                      text = "Zeeshan Vedio Pyle"
-                      textSize = 22f
-                      setTypeface(null, Typeface.BOLD)
-                      setTextColor(Color.WHITE)
-                      layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
-                  }
-                  header.addView(titleTv)
-                  val tabBar = LinearLayout(this).apply {
-                      orientation = LinearLayout.HORIZONTAL
-                      setBackgroundColor(Color.parseColor("#3E2723"))
-                      elevation = 8f
-                  }
-                  tabFoldersBtn = createTabBtn("FOLDERS", true)
-                  tabVideosBtn = createTabBtn("ALL VIDEOS", false)
-                  tabBar.addView(tabFoldersBtn)
-                  tabBar.addView(tabVideosBtn)
-                  
-                  val scrollView = ScrollView(this).apply { layoutParams = LinearLayout.LayoutParams(-1, 0, 1f) }
-                  videoListView = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(20, 20, 20, 20) }
-                  scrollView.addView(videoListView)
-                  
-                  mainContainer.addView(header)
-                  mainContainer.addView(tabBar)
-                  mainContainer.addView(scrollView)
-                  setContentView(mainContainer)
-              }
-              
-              private fun createTabBtn(title: String, isFolder: Boolean): TextView {
-                  return TextView(this).apply {
-                      text = title
-                      textSize = 15f
-                      setTypeface(null, Typeface.BOLD)
-                      setTextColor(if (isFolder) Color.WHITE else Color.parseColor("#D7CCC8"))
-                      gravity = Gravity.CENTER
-                      setPadding(0, 30, 0, 30)
-                      layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
-                      setOnClickListener {
-                          currentTabIsFolders = isFolder
-                          updateTabUI()
-                          renderView()
-                      }
-                  }
+                  setContentView(R.layout.activity_main)
+
+                  tabFolders = findViewById(R.id.tab_folders)
+                  tabVideos = findViewById(R.id.tab_videos)
+                  recyclerView = findViewById(R.id.recycler_view)
+                  recyclerView.layoutManager = LinearLayoutManager(this)
+
+                  tabFolders.setOnClickListener { switchTab(true) }
+                  tabVideos.setOnClickListener { switchTab(false) }
               }
 
-              override fun onResume() { super.onResume(); checkAndRequestPermissions() }
+              override fun onResume() { super.onResume(); checkPermissions() }
 
-              private fun checkAndRequestPermissions() {
+              private fun switchTab(isFolder: Boolean) {
+                  isFolderTab = isFolder
+                  tabFolders.setTextColor(if (isFolder) Color.WHITE else Color.parseColor("#D7CCC8"))
+                  tabVideos.setTextColor(if (!isFolder) Color.WHITE else Color.parseColor("#D7CCC8"))
+                  setupAdapter()
+              }
+
+              private fun checkPermissions() {
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                       if (!Environment.isExternalStorageManager()) {
-                          AlertDialog.Builder(this)
-                              .setTitle("All Files Access Needed")
-                              .setMessage("Storage access required for offline playback.")
-                              .setPositiveButton("Grant") { _, _ ->
-                                  startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")))
-                              }.show()
-                      } else loadLocalVideos()
+                          AlertDialog.Builder(this).setTitle("Storage Access")
+                              .setMessage("Require full storage access to play offline videos.")
+                              .setPositiveButton("Grant") { _, _ -> startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName"))) }
+                              .show()
+                      } else fetchVideosAsync()
+                  } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                      if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VIDEO) != PackageManager.PERMISSION_GRANTED) {
+                          ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.READ_MEDIA_VIDEO), 101)
+                      } else fetchVideosAsync()
                   } else {
                       if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
                           ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), 101)
-                      } else loadLocalVideos()
+                      } else fetchVideosAsync()
                   }
               }
 
-              private fun updateTabUI() {
-                  tabFoldersBtn.setTextColor(if (currentTabIsFolders) Color.WHITE else Color.parseColor("#D7CCC8"))
-                  tabVideosBtn.setTextColor(if (!currentTabIsFolders) Color.WHITE else Color.parseColor("#D7CCC8"))
-              }
-
-              private fun loadLocalVideos() {
-                  videoList.clear(); folderMap.clear()
-                  val proj = arrayOf(MediaStore.Video.Media._ID, MediaStore.Video.Media.TITLE, MediaStore.Video.Media.DATA, MediaStore.Video.Media.DURATION, MediaStore.Video.Media.SIZE)
-                  contentResolver.query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, proj, null, null, "${MediaStore.Video.Media.DATE_ADDED} DESC")?.use {
-                      while (it.moveToNext()) {
-                          val id = it.getLong(0); val title = it.getString(1) ?: "Video"; val path = it.getString(2) ?: ""
-                          val dur = it.getLong(3); val size = it.getLong(4)
-                          val uri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
-                          val folder = File(path).parentFile?.name ?: "Internal Storage"
-                          val model = VideoModel(id, title, path, dur, size, uri, folder)
-                          videoList.add(model)
-                          folderMap.getOrPut(folder) { ArrayList() }.add(model)
+              private fun fetchVideosAsync() {
+                  lifecycleScope.launch {
+                      withContext(Dispatchers.IO) {
+                          videoList.clear()
+                          val fMap = HashMap<String, ArrayList<VideoModel>>()
+                          val proj = arrayOf(MediaStore.Video.Media._ID, MediaStore.Video.Media.TITLE, MediaStore.Video.Media.DATA, MediaStore.Video.Media.DURATION, MediaStore.Video.Media.SIZE)
+                          contentResolver.query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, proj, null, null, "${MediaStore.Video.Media.DATE_ADDED} DESC")?.use {
+                              while (it.moveToNext()) {
+                                  val id = it.getLong(0)
+                                  val path = it.getString(2) ?: ""
+                                  val model = VideoModel(id, it.getString(1) ?: "Video", path, it.getLong(3), it.getLong(4),
+                                      ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id), File(path).parentFile?.name ?: "Internal Storage")
+                                  videoList.add(model)
+                                  fMap.getOrPut(model.folderName) { ArrayList() }.add(model)
+                              }
+                          }
+                          folderList.clear()
+                          folderList.addAll(fMap.toList())
                       }
-                  }
-                  renderView()
-              }
-
-              private fun renderView() {
-                  videoListView.removeAllViews()
-                  if (currentTabIsFolders) {
-                      for ((fName, list) in folderMap) renderFolderCard(fName, list.size) { showFolderVideosDialog(fName, list) }
-                  } else {
-                      for (v in videoList) renderVideoCard(v)
+                      setupAdapter()
                   }
               }
 
-              private fun renderFolderCard(name: String, count: Int, onClick: () -> Unit) {
-                  val card = LinearLayout(this).apply {
-                      orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(40, 40, 40, 40)
-                      elevation = 8f; background = GradientDrawable().apply { setColor(Color.WHITE); cornerRadius = 16f }
-                      layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(10, 10, 10, 20) }
-                      setOnClickListener { onClick() }
-                  }
-                  val icon = TextView(this).apply { text = "📁"; textSize = 35f; setPadding(0, 0, 40, 0) }
-                  val details = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, -2, 1f) }
-                  val titleTv = TextView(this).apply { text = name; textSize = 17f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#3E2723")) }
-                  val countTv = TextView(this).apply { text = "$count videos"; textSize = 14f; setTextColor(Color.parseColor("#8D6E63")) }
-                  details.addView(titleTv); details.addView(countTv)
-                  card.addView(icon); card.addView(details)
-                  videoListView.addView(card)
-              }
-
-              private fun renderVideoCard(video: VideoModel, container: LinearLayout = videoListView, inDialog: Boolean = false) {
-                  val card = LinearLayout(this).apply {
-                      orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(20, 20, 20, 20)
-                      elevation = 8f; background = GradientDrawable().apply { setColor(Color.WHITE); cornerRadius = 16f }
-                      layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(10, 10, 10, 20) }
-                      setOnClickListener {
-                          startActivity(Intent(this@MainActivity, PlayerActivity::class.java).apply { putExtra("video_uri", video.uri.toString()); putExtra("video_title", video.title) })
+              private fun setupAdapter() {
+                  recyclerView.adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+                      override fun getItemViewType(position: Int) = if (isFolderTab) 0 else 1
+                      override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+                          val view = LinearLayout(this@MainActivity).apply {
+                              orientation = LinearLayout.HORIZONTAL; setPadding(30, 30, 30, 30)
+                              layoutParams = RecyclerView.LayoutParams(-1, -2).apply { setMargins(16, 16, 16, 16) }
+                              background = ContextCompat.getDrawable(this@MainActivity, android.R.drawable.dialog_holo_light_frame)
+                          }
+                          val tvMain = TextView(this@MainActivity).apply { textSize = 16f; setTextColor(Color.BLACK); layoutParams = LinearLayout.LayoutParams(0, -2, 1f) }
+                          view.addView(tvMain)
+                          return object : RecyclerView.ViewHolder(view) {}
                       }
+                      override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+                          val container = holder.itemView as LinearLayout
+                          val tvMain = container.getChildAt(0) as TextView
+                          if (isFolderTab) {
+                              val folder = folderList[position]
+                              tvMain.text = "📁 ${folder.first}\n${folder.second.size} videos"
+                              container.setOnClickListener { showFolderDialog(folder.first, folder.second) }
+                          } else {
+                              val video = videoList[position]
+                              tvMain.text = "🎬 ${video.title}\n${String.format("%.1f MB", video.size.toDouble() / (1024 * 1024))}"
+                              container.setOnClickListener { launchPlayer(video) }
+                          }
+                      }
+                      override fun getItemCount() = if (isFolderTab) folderList.size else videoList.size
                   }
-                  val thumbContainer = FrameLayout(this).apply { layoutParams = LinearLayout.LayoutParams(240, 150).apply { setMargins(0, 0, 30, 0) } }
-                  val thumbIv = ImageView(this).apply { layoutParams = FrameLayout.LayoutParams(-1, -1); scaleType = ImageView.ScaleType.CENTER_CROP }
-                  Glide.with(this).load(video.uri).into(thumbIv)
-                  val durTv = TextView(this).apply {
-                      text = formatDuration(video.duration); textSize = 10f; setTextColor(Color.WHITE); setBackgroundColor(Color.parseColor("#B33E2723"))
-                      setPadding(8, 4, 8, 4); layoutParams = FrameLayout.LayoutParams(-2, -2).apply { gravity = Gravity.BOTTOM or Gravity.END; setMargins(0,0,8,8) }
-                  }
-                  thumbContainer.addView(thumbIv); thumbContainer.addView(durTv)
-                  val details = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, -2, 1f) }
-                  val tTv = TextView(this).apply { text = video.title; textSize = 15f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#260F08")); maxLines = 2 }
-                  val sTv = TextView(this).apply { text = formatSize(video.size); textSize = 13f; setTextColor(Color.parseColor("#5D4037")); setPadding(0, 10, 0, 0) }
-                  details.addView(tTv); details.addView(sTv)
-                  card.addView(thumbContainer); card.addView(details)
-                  container.addView(card)
               }
 
-              private fun showFolderVideosDialog(folderName: String, list: ArrayList<VideoModel>) {
-                  val dialog = android.app.Dialog(this, android.R.style.Theme_Light_NoTitleBar_Fullscreen)
-                  val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.parseColor("#F7F5F4")) }
-                  val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(40, 40, 40, 40); setBackgroundColor(Color.parseColor("#4E342E")); elevation = 12f }
-                  val backBtn = TextView(this).apply { text = "←"; textSize = 26f; setTextColor(Color.WHITE); setPadding(0, 0, 40, 0); setOnClickListener { dialog.dismiss() } }
-                  val titleTv = TextView(this).apply { text = folderName; textSize = 20f; setTypeface(null, Typeface.BOLD); setTextColor(Color.WHITE) }
-                  header.addView(backBtn); header.addView(titleTv)
-                  val scrollView = ScrollView(this); val container = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(20, 20, 20, 20) }
-                  for (v in list) renderVideoCard(v, container, true)
-                  scrollView.addView(container); layout.addView(header); layout.addView(scrollView)
-                  dialog.setContentView(layout); dialog.show()
+              private fun showFolderDialog(name: String, list: ArrayList<VideoModel>) {
+                  val listView = ListView(this).apply {
+                      adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_list_item_1, list.map { it.title })
+                      setOnItemClickListener { _, _, i, _ -> launchPlayer(list[i]) }
+                  }
+                  AlertDialog.Builder(this).setTitle(name).setView(listView).setNegativeButton("Close", null).show()
               }
 
-              private fun formatDuration(millis: Long): String {
-                  val hrs = TimeUnit.MILLISECONDS.toHours(millis); val mins = TimeUnit.MILLISECONDS.toMinutes(millis) % 60; val secs = TimeUnit.MILLISECONDS.toSeconds(millis) % 60
-                  return if (hrs > 0) String.format("%02d:%02d:%02d", hrs, mins, secs) else String.format("%02d:%02d", mins, secs)
+              private fun launchPlayer(v: VideoModel) {
+                  startActivity(Intent(this, PlayerActivity::class.java).apply {
+                      putExtra("video_uri", v.uri.toString())
+                      putExtra("video_title", v.title)
+                  })
               }
-              private fun formatSize(bytes: Long): String = String.format("%.1f MB", bytes.toDouble() / (1024 * 1024))
           }
           EOF
 
-          # Write PlayerActivity.kt (Full MX Features: Gestures, Zoom, Lock, Tracks, Boost)
           cat > app/src/main/java/com/zeeshan/videopyle/PlayerActivity.kt <<'EOF'
           package com.zeeshan.videopyle
 
@@ -754,7 +466,6 @@ jobs:
           import kotlin.math.abs
 
           class PlayerActivity : AppCompatActivity() {
-
               private var player: ExoPlayer? = null
               private lateinit var playerView: PlayerView
               private lateinit var hudLayout: LinearLayout
@@ -767,15 +478,12 @@ jobs:
               private var isLocked = false
               private var isPillVisible = true
               
-              // Pinch to Zoom
               private var scaleFactor = 1.0f
-              private lateinit var scaleGestureDetector: ScaleGestureDetector
+              private lateinit var scaleDetector: ScaleGestureDetector
               private lateinit var gestureDetector: GestureDetector
 
               private var videoUriStr: String? = null
-              private var videoTitle: String? = null
               private var currentAspectMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-              
               private val hideHudHandler = Handler(Looper.getMainLooper())
               private val hideHudRunnable = Runnable { hudLayout.visibility = View.GONE }
 
@@ -784,280 +492,149 @@ jobs:
                   requestWindowFeature(Window.FEATURE_NO_TITLE)
                   window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
                   window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                  hideSystemUI()
+                  WindowCompat.setDecorFitsSystemWindows(window, false)
+                  WindowInsetsControllerCompat(window, window.decorView).let {
+                      it.hide(WindowInsetsCompat.Type.systemBars())
+                      it.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                  }
 
                   setContentView(R.layout.activity_player)
-
                   videoUriStr = intent.getStringExtra("video_uri")
-                  videoTitle = intent.getStringExtra("video_title")
-
+                  
                   playerView = findViewById(R.id.player_view)
                   hudLayout = findViewById(R.id.hud_layout)
                   hudText = findViewById(R.id.hud_text)
                   btnUnlock = findViewById(R.id.btn_unlock)
 
-                  setupCustomControls()
+                  setupControls()
                   setupGestures()
-                  initEngine()
+                  initPlayer()
               }
 
-              private fun hideSystemUI() {
-                  WindowCompat.setDecorFitsSystemWindows(window, false)
-                  WindowInsetsControllerCompat(window, window.decorView).let { controller ->
-                      controller.hide(WindowInsetsCompat.Type.systemBars())
-                      controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                  }
-              }
-
-              private fun setupCustomControls() {
-                  findViewById<TextView>(R.id.tv_title)?.text = videoTitle ?: "Zeeshan Player"
+              private fun setupControls() {
+                  findViewById<TextView>(R.id.tv_title)?.text = intent.getStringExtra("video_title") ?: "Video"
                   findViewById<ImageButton>(R.id.btn_back)?.setOnClickListener { finish() }
-
-                  // Top Bar Settings
-                  findViewById<TextView>(R.id.btn_audio_track)?.setOnClickListener { showTrackSelector(C.TRACK_TYPE_AUDIO, "Audio Language") }
-                  findViewById<TextView>(R.id.btn_subtitle)?.setOnClickListener { showTrackSelector(C.TRACK_TYPE_TEXT, "Subtitles") }
-                  
-                  val btnDecoder = findViewById<TextView>(R.id.btn_decoder)
-                  btnDecoder?.setOnClickListener {
-                      val isHw = btnDecoder.text == "HW"
-                      btnDecoder.text = if (isHw) "SW" else "HW"
-                      showHud(if (isHw) "Software Decoder Enabled" else "Hardware Decoder Enabled")
-                  }
-
-                  val topSpeedBtn = findViewById<TextView>(R.id.btn_top_speed)
-                  val pillSpeedBtn = findViewById<TextView>(R.id.pill_speed)
-                  val updateSpeed = {
+                  findViewById<TextView>(R.id.btn_top_speed)?.setOnClickListener {
                       val speeds = arrayOf(0.5f, 1.0f, 1.5f, 2.0f)
-                      var idx = speeds.indexOf(currentSpeed) + 1
-                      if (idx >= speeds.size) idx = 0
-                      currentSpeed = speeds[idx]
+                      currentSpeed = speeds[(speeds.indexOf(currentSpeed) + 1) % speeds.size]
                       player?.playbackParameters = PlaybackParameters(currentSpeed)
-                      topSpeedBtn?.text = "${currentSpeed}x"
-                      pillSpeedBtn?.text = "${currentSpeed}X"
+                      (it as TextView).text = "${currentSpeed}x"
                       showHud("Speed: ${currentSpeed}x")
                   }
-                  topSpeedBtn?.setOnClickListener { updateSpeed() }
-                  pillSpeedBtn?.setOnClickListener { updateSpeed() }
+                  
+                  findViewById<TextView>(R.id.btn_aspect_ratio)?.setOnClickListener {
+                      currentAspectMode = if (currentAspectMode == AspectRatioFrameLayout.RESIZE_MODE_FIT) AspectRatioFrameLayout.RESIZE_MODE_ZOOM else AspectRatioFrameLayout.RESIZE_MODE_FIT
+                      playerView.resizeMode = currentAspectMode
+                      showHud(if (currentAspectMode == AspectRatioFrameLayout.RESIZE_MODE_FIT) "FIT" else "CROP")
+                  }
 
-                  // Pill Bar Settings
                   val pill = findViewById<LinearLayout>(R.id.floating_pill)
                   findViewById<TextView>(R.id.pill_collapse)?.setOnClickListener {
                       isPillVisible = !isPillVisible
                       pill.visibility = if (isPillVisible) View.VISIBLE else View.GONE
                   }
-                  
                   findViewById<TextView>(R.id.pill_rotate)?.setOnClickListener {
-                      requestedOrientation = if (requestedOrientation == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE) {
-                          ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                      } else ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                      requestedOrientation = if (requestedOrientation == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE) ActivityInfo.SCREEN_ORIENTATION_PORTRAIT else ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
                   }
-                  
-                  findViewById<TextView>(R.id.pill_zoom)?.setOnClickListener { toggleAspectRatio() }
                   findViewById<TextView>(R.id.pill_boost)?.setOnClickListener {
                       currentBoostPercent = if (currentBoostPercent == 100) 200 else 100
                       applyAudioBoost(currentBoostPercent)
                       showHud("Audio Boost: $currentBoostPercent%")
                   }
 
-                  // Bottom Bar
-                  findViewById<TextView>(R.id.btn_aspect_ratio)?.setOnClickListener { toggleAspectRatio() }
-                  
-                  // Screen Lock Logic
-                  val controlRoot = findViewById<View>(R.id.control_root)
+                  val rootControl = findViewById<View>(R.id.control_root)
                   findViewById<ImageButton>(R.id.btn_lock)?.setOnClickListener {
-                      isLocked = true
-                      playerView.useController = false
-                      controlRoot.visibility = View.GONE
-                      btnUnlock.visibility = View.VISIBLE
-                      showHud("Screen Locked 🔒")
+                      isLocked = true; playerView.useController = false; rootControl.visibility = View.GONE; btnUnlock.visibility = View.VISIBLE
+                      showHud("Locked 🔒")
                   }
-                  
                   btnUnlock.setOnClickListener {
-                      isLocked = false
-                      playerView.useController = true
-                      btnUnlock.visibility = View.GONE
-                      showHud("Screen Unlocked 🔓")
+                      isLocked = false; playerView.useController = true; btnUnlock.visibility = View.GONE
+                      showHud("Unlocked 🔓")
                   }
-              }
-
-              private fun toggleAspectRatio() {
-                  currentAspectMode = when (currentAspectMode) {
-                      AspectRatioFrameLayout.RESIZE_MODE_FIT -> AspectRatioFrameLayout.RESIZE_MODE_FILL
-                      AspectRatioFrameLayout.RESIZE_MODE_FILL -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                      else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
-                  }
-                  playerView.resizeMode = currentAspectMode
-                  val modeStr = when(currentAspectMode) {
-                      AspectRatioFrameLayout.RESIZE_MODE_FIT -> "FIT"
-                      AspectRatioFrameLayout.RESIZE_MODE_FILL -> "STRETCH"
-                      else -> "CROP/ZOOM"
-                  }
-                  showHud("Aspect: $modeStr")
-              }
-
-              private fun showTrackSelector(trackType: @C.TrackType Int, title: String) {
-                  val p = player ?: return
-                  val tracks = p.currentTracks
-                  val options = ArrayList<Pair<String, TrackSelectionOverride>>()
-
-                  for (group in tracks.groups) {
-                      if (group.type == trackType) {
-                          val mediaGroup = group.mediaTrackGroup
-                          for (i in 0 until mediaGroup.length) {
-                              val format = mediaGroup.getFormat(i)
-                              val lang = format.language ?: "Unknown"
-                              val label = format.label ?: "Track ${options.size + 1}"
-                              options.add(Pair("$label ($lang)", TrackSelectionOverride(mediaGroup, i)))
-                          }
-                      }
-                  }
-                  if (options.isEmpty()) {
-                      Toast.makeText(this, "No $title tracks available", Toast.LENGTH_SHORT).show()
-                      return
-                  }
-                  val names = options.map { it.first }.toTypedArray()
-                  AlertDialog.Builder(this).setTitle("Select $title").setItems(names) { _, index ->
-                      p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().setOverrideForType(options[index].second).build()
-                      showHud("$title Selected")
-                  }.show()
-              }
-
-              private fun applyAudioBoost(percent: Int) {
-                  val p = player ?: return
-                  val sessionId = p.audioSessionId
-                  if (sessionId == C.AUDIO_SESSION_ID_UNSET) return
-                  try {
-                      if (loudnessEnhancer == null) loudnessEnhancer = LoudnessEnhancer(sessionId)
-                      if (percent > 100) {
-                          loudnessEnhancer?.setTargetGain((percent - 100) * 15) // mB gain
-                          loudnessEnhancer?.enabled = true
-                      } else {
-                          loudnessEnhancer?.enabled = false
-                      }
-                  } catch (e: Exception) { e.printStackTrace() }
               }
 
               private fun setupGestures() {
-                  // Pinch to Zoom
-                  scaleGestureDetector = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
-                      override fun onScale(detector: ScaleGestureDetector): Boolean {
+                  scaleDetector = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                      override fun onScale(d: ScaleGestureDetector): Boolean {
                           if (isLocked) return false
-                          scaleFactor *= detector.scaleFactor
-                          scaleFactor = scaleFactor.coerceIn(1.0f, 3.0f)
-                          val videoSurface = playerView.videoSurfaceView
-                          videoSurface?.scaleX = scaleFactor
-                          videoSurface?.scaleY = scaleFactor
+                          scaleFactor = (scaleFactor * d.scaleFactor).coerceIn(1.0f, 3.0f)
+                          playerView.videoSurfaceView?.apply { scaleX = scaleFactor; scaleY = scaleFactor }
                           if(scaleFactor > 1.0f) showHud("Zoom: ${(scaleFactor*100).toInt()}%")
                           return true
                       }
                   })
 
-                  // Swipes (Brightness, Volume, Seek)
                   gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-                      override fun onScroll(e1: MotionEvent?, e2: MotionEvent, distanceX: Float, distanceY: Float): Boolean {
+                      override fun onScroll(e1: MotionEvent?, e2: MotionEvent, dX: Float, dY: Float): Boolean {
                           if (e1 == null || isLocked) return false
-                          val sWidth = resources.displayMetrics.widthPixels
-                          
-                          // Horizontal Swipe (Seek)
-                          if (abs(distanceX) > abs(distanceY)) {
-                              val seekMultiplier = 150L // 150ms per pixel
-                              player?.let {
-                                  val currentPos = it.currentPosition
-                                  val newPos = (currentPos - (distanceX * seekMultiplier).toLong()).coerceIn(0, it.duration)
-                                  it.seekTo(newPos)
-                                  val mins = (newPos / 1000) / 60
-                                  val secs = (newPos / 1000) % 60
-                                  showHud(String.format("Seek: %02d:%02d", mins, secs))
+                          if (abs(dX) > abs(dY)) { // Seek
+                              player?.let { p ->
+                                  val newPos = (p.currentPosition - (dX * 150L)).coerceIn(0, p.duration)
+                                  p.seekTo(newPos)
+                                  showHud(String.format("%02d:%02d", (newPos/1000)/60, (newPos/1000)%60))
                               }
-                              return true
-                          }
-                          
-                          // Vertical Swipes
-                          if (e1.x < sWidth / 2) { // Left Half: Brightness
-                              val lp = window.attributes
-                              lp.screenBrightness = (lp.screenBrightness + distanceY / resources.displayMetrics.heightPixels).coerceIn(0.01f, 1.0f)
-                              window.attributes = lp
-                              showHud("☀️ ${(lp.screenBrightness * 100).toInt()}%")
-                          } else { // Right Half: Volume/Boost
-                              val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                              val maxVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                              val curVol = am.getStreamVolume(AudioManager.STREAM_MUSIC)
-                              
-                              if (distanceY > 0) { // Swipe Up
-                                  if (curVol < maxVol) {
-                                      am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, 0)
-                                      showHud("🔊 ${(am.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / maxVol * 100).toInt()}%")
-                                  } else if (currentBoostPercent < 200) {
-                                      currentBoostPercent = (currentBoostPercent + 2).coerceAtMost(200)
-                                      applyAudioBoost(currentBoostPercent)
-                                      showHud("🚀 Boost: $currentBoostPercent%")
-                                  }
-                              } else { // Swipe Down
-                                  if (currentBoostPercent > 100) {
-                                      currentBoostPercent = (currentBoostPercent - 2).coerceAtLeast(100)
-                                      applyAudioBoost(currentBoostPercent)
-                                      showHud("🚀 Boost: $currentBoostPercent%")
-                                  } else {
-                                      am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, 0)
-                                      showHud("🔊 ${(am.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / maxVol * 100).toInt()}%")
-                                  }
+                          } else { // Volume/Brightness
+                              if (e1.x < resources.displayMetrics.widthPixels / 2) {
+                                  val lp = window.attributes
+                                  lp.screenBrightness = (lp.screenBrightness + dY / resources.displayMetrics.heightPixels).coerceIn(0.01f, 1.0f)
+                                  window.attributes = lp
+                                  showHud("☀️ ${(lp.screenBrightness * 100).toInt()}%")
+                              } else {
+                                  val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                                  if (dY > 0) am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, 0)
+                                  else am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, 0)
+                                  val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                                  showHud("🔊 ${(am.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / max * 100).toInt()}%")
                               }
                           }
                           return true
                       }
-                      
                       override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                          if (!isLocked) {
-                              if (playerView.isControllerFullyVisible) playerView.hideController()
-                              else playerView.showController()
-                          }
+                          if (!isLocked) { if (playerView.isControllerFullyVisible) playerView.hideController() else playerView.showController() }
                           return true
                       }
                   })
 
-                  // Intercept touch events on the PlayerView
                   playerView.setOnTouchListener { _, event ->
-                      if (isLocked) {
-                          // Prevent all touches except our unlock button which is handled by Android
-                          true 
-                      } else {
-                          scaleGestureDetector.onTouchEvent(event)
+                      if (isLocked) true else {
+                          scaleDetector.onTouchEvent(event)
                           gestureDetector.onTouchEvent(event)
-                          true // consume touch so Exoplayer's default single tap doesn't conflict
+                          true 
                       }
                   }
               }
 
-              private fun showHud(text: String) {
-                  hudText.text = text
-                  hudLayout.visibility = View.VISIBLE
+              private fun showHud(t: String) {
+                  hudText.text = t; hudLayout.visibility = View.VISIBLE
                   hideHudHandler.removeCallbacks(hideHudRunnable)
                   hideHudHandler.postDelayed(hideHudRunnable, 1500)
               }
 
-              private fun initEngine() {
-                  if (videoUriStr == null) return
-                  player = ExoPlayer.Builder(this).build().also { exo ->
-                      playerView.player = exo
-                      exo.setMediaItem(MediaItem.fromUri(Uri.parse(videoUriStr)))
-                      
-                      val prefs = getSharedPreferences("OfflineVideoPrefs", Context.MODE_PRIVATE)
-                      val savedPos = prefs.getLong(videoUriStr, 0L)
-                      if (savedPos > 0) exo.seekTo(savedPos)
+              private fun applyAudioBoost(p: Int) {
+                  if (player?.audioSessionId == C.AUDIO_SESSION_ID_UNSET) return
+                  loudnessEnhancer = loudnessEnhancer ?: LoudnessEnhancer(player!!.audioSessionId)
+                  if (p > 100) { loudnessEnhancer?.setTargetGain((p - 100) * 15); loudnessEnhancer?.enabled = true }
+                  else loudnessEnhancer?.enabled = false
+              }
 
-                      exo.prepare()
-                      exo.playWhenReady = true
+              private fun initPlayer() {
+                  if (videoUriStr == null) return
+                  player = ExoPlayer.Builder(this).build().apply {
+                      playerView.player = this
+                      setMediaItem(MediaItem.fromUri(Uri.parse(videoUriStr)))
+                      val pos = getSharedPreferences("Prefs", MODE_PRIVATE).getLong(videoUriStr, 0L)
+                      if (pos > 0) seekTo(pos)
+                      prepare(); playWhenReady = true
                   }
               }
 
               override fun onStop() {
                   super.onStop()
-                  player?.let { exo ->
-                      getSharedPreferences("OfflineVideoPrefs", Context.MODE_PRIVATE).edit().putLong(videoUriStr, exo.currentPosition).apply()
-                      exo.release()
+                  player?.let { p ->
+                      getSharedPreferences("Prefs", MODE_PRIVATE).edit().putLong(videoUriStr, p.currentPosition).apply()
+                      p.release()
                   }
-                  loudnessEnhancer?.release()
-                  player = null
+                  loudnessEnhancer?.release(); player = null
               }
           }
           EOF
@@ -1070,3 +647,4 @@ jobs:
         with:
           name: Zeeshan-Vedio-Pyle-Pro-APK
           path: app/build/outputs/apk/debug/app-debug.apk
+
