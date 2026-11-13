@@ -29,11 +29,26 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android platform and build tools
+      - name: Set up Robust Android SDK & Command-Line Tools
         run: |
+          set -euo pipefail
+          echo "📂 Setting up Android SDK manually to bypass outdated action errors..."
+          export ANDROID_SDK_ROOT=$HOME/android-sdk
+          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
+          
+          # Download latest official Android command-line tools directly from Google
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O commandlinetools.zip
+          unzip -q commandlinetools.zip -d $ANDROID_SDK_ROOT/cmdline-tools
+          mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest
+          rm commandlinetools.zip
+
+          # Configure paths
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
+
+          # Accept SDK licenses and install required packages
+          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools
           yes | sdkmanager --licenses > /dev/null || true
           sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
 
@@ -102,7 +117,6 @@ jobs:
 
               buildTypes {
                   release {
-                      // Shrinking is off: no custom ProGuard rules are shipped, and CameraX/zip paths are reflection-sensitive.
                       minifyEnabled false
                   }
                   debug {
@@ -135,15 +149,12 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-              <!-- Camera is mandatory. Gyroscope and compass are optional: the app falls back gracefully. -->
               <uses-feature android:name="android.hardware.camera.any" android:required="true" />
               <uses-feature android:name="android.hardware.sensor.gyroscope" android:required="false" />
               <uses-feature android:name="android.hardware.sensor.compass" android:required="false" />
               <uses-feature android:glEsVersion="0x00020000" android:required="true" />
 
               <uses-permission android:name="android.permission.CAMERA" />
-
-              <!-- Photos live in app-private storage (filesDir), so no storage permission is needed on any API level. -->
 
               <application
                   android:allowBackup="false"
@@ -358,57 +369,23 @@ jobs:
           import kotlin.math.sqrt
           import kotlin.math.tan
 
-          /**
-           * Converts a sweep of captured frames into a `.panco` package.
-           *
-           * Pipeline:
-           *  1. Each frame is projected at its measured yaw into an equirectangular panorama
-           *     (pinhole model, cosine-feathered weights in overlaps so seams fade out).
-           *  2. Each of the six cube faces is produced by mapping every face pixel to a world direction
-           *     and sampling the panorama in that direction. Adjacent faces share exact edge directions,
-           *     so their borders join without a visible seam.
-           *
-           * Memory: frames are decoded one at a time. Only float accumulators for the panorama
-           * (about 16 bytes per panorama pixel) and six 512x512 faces stay resident.
-           * All work runs on a background thread; never call this on the UI thread.
-           */
           object CubemapProcessor {
-
-              // ---- Capture geometry ----
-              /** Yaw step between automatic captures, in degrees. */
               const val STEP_DEG = 12f
-              /** Frames needed for a full 360° sweep at [STEP_DEG]. */
               const val FULL_SWEEP_FRAMES = 30
-              /** Minimum frames needed to build a usable cubemap. */
               const val MIN_FRAMES = 6
-
-              /** Captured frame size in portrait. Frames are stored at this size regardless of sensor output. */
               const val FRAME_W = 480
               const val FRAME_H = 640
-
-              /**
-               * Field of view of the main camera. Tune per device if the stitched result looks stretched.
-               * Portrait: the short side (width) is the sweep direction, so it gets the smaller angle.
-               */
               const val H_FOV_DEG = 50.0
               const val V_FOV_DEG = 68.0
-
-              // ---- Output resolution ----
               const val PANO_W = 1024
               const val PANO_H = 512
               const val FACE_SIZE = 512
               private const val THUMB_SIZE = 256
-
-              /** Index of the "front" face: the direction the user starts facing (-Z). */
               private const val FRONT_INDEX = 5
-
-              /** ARGB opaque black. */
               private const val OPAQUE_BLACK = -16777216
 
-              /** A captured frame and the heading (degrees, 0..360) at which it was taken. */
               data class Frame(val file: File, val yawDeg: Float)
 
-              /** Single background worker with reduced scheduling priority so the UI stays smooth. */
               fun newSingleWorker(name: String): ExecutorService =
                   Executors.newSingleThreadExecutor { runnable ->
                       Thread({
@@ -417,10 +394,6 @@ jobs:
                       }, name).apply { isDaemon = true }
                   }
 
-              /**
-               * Builds a `.panco` file from [frames]. Blocking; call from a worker thread.
-               * [onProgress] reports 0..100.
-               */
               fun build(
                   frames: List<Frame>,
                   outFile: File,
@@ -429,11 +402,9 @@ jobs:
                   onProgress: (Int) -> Unit = {}
               ): File {
                   require(frames.size >= MIN_FRAMES) { "Need at least $MIN_FRAMES frames" }
-
                   val sorted = frames.sortedBy { it.yawDeg }
                   val pano = buildEquirect(sorted, onProgress)
                   onProgress(90)
-
                   val faces = Array(6) { renderFace(pano, it) }
                   val thumb = Bitmap.createScaledBitmap(faces[FRONT_INDEX], THUMB_SIZE, THUMB_SIZE, true)
                   try {
@@ -446,47 +417,35 @@ jobs:
                   return outFile
               }
 
-              // ------------------------------------------------------------------------
-              // Step 1: frames -> equirectangular panorama
-              // ------------------------------------------------------------------------
-
               private fun buildEquirect(frames: List<Frame>, onProgress: (Int) -> Unit): IntArray {
                   val n = PANO_W * PANO_H
                   val accR = FloatArray(n)
                   val accG = FloatArray(n)
                   val accB = FloatArray(n)
                   val accW = FloatArray(n)
-
-                  // Longitude for each panorama column, and tan(latitude) for each row.
                   val lon = DoubleArray(PANO_W) { x -> (x + 0.5) / PANO_W * 2.0 * PI - PI }
                   val tanLat = DoubleArray(PANO_H)
                   for (y in 0 until PANO_H) {
                       val lat = (0.5 - (y + 0.5) / PANO_H) * PI
                       tanLat[y] = tan(lat)
                   }
-
-                  // Pinhole intrinsics for the frame.
                   val halfH = Math.toRadians(H_FOV_DEG / 2.0)
                   val halfV = Math.toRadians(V_FOV_DEG / 2.0)
                   val fx = (FRAME_W / 2.0) / tan(halfH)
                   val fy = (FRAME_H / 2.0) / tan(halfV)
                   val cx = FRAME_W / 2.0
                   val cy = FRAME_H / 2.0
-                  // Cosine feather: weight is 1 at the frame centre and 0 at the FOV edge.
                   val featherK = PI / (2.0 * halfH)
 
                   frames.forEachIndexed { index, frame ->
                       val pixels = loadFramePixels(frame.file)
                       val yaw = Math.toRadians(frame.yawDeg.toDouble())
-
                       for (x in 0 until PANO_W) {
-                          val d = wrapPi(lon[x] - yaw)           // angle from the frame's optical axis
-                          if (abs(d) >= halfH) continue          // column outside this frame
-
+                          val d = wrapPi(lon[x] - yaw)
+                          if (abs(d) >= halfH) continue
                           val cosD = cos(d)
                           val col = (cx + fx * tan(d)).toInt().coerceIn(0, FRAME_W - 1)
                           val w = cos(d * featherK).toFloat()
-
                           for (y in 0 until PANO_H) {
                               val srcY = cy - fy * tanLat[y] / cosD
                               if (srcY < 0.0 || srcY >= FRAME_H) continue
@@ -500,7 +459,6 @@ jobs:
                       }
                       onProgress(index * 85 / frames.size)
                   }
-
                   val out = IntArray(n)
                   for (i in 0 until n) {
                       val w = accW[i]
@@ -510,10 +468,6 @@ jobs:
                   return out
               }
 
-              /**
-               * Rows no frame covered (usually the top and bottom of a horizontal sweep) are filled
-               * by extending the nearest covered row in the same column. This avoids black caps.
-               */
               private fun fillUncoveredRows(px: IntArray, weight: FloatArray) {
                   for (x in 0 until PANO_W) {
                       var first = -1
@@ -525,12 +479,10 @@ jobs:
                           }
                       }
                       if (first == -1) continue
-
                       val topColor = px[first * PANO_W + x]
                       val bottomColor = px[lastRow * PANO_W + x]
                       for (y in 0 until first) px[y * PANO_W + x] = topColor
                       for (y in lastRow + 1 until PANO_H) px[y * PANO_W + x] = bottomColor
-
                       var last = topColor
                       for (y in first..lastRow) {
                           val i = y * PANO_W + x
@@ -539,23 +491,14 @@ jobs:
                   }
               }
 
-              // ------------------------------------------------------------------------
-              // Step 2: panorama -> six cube faces
-              // ------------------------------------------------------------------------
-
-              /**
-               * Maps normalised face coordinates (u, v in [-1, 1]) to a world direction for [face].
-               * Faces use OpenGL cube-map target order: +X, -X, +Y, -Y, +Z, -Z.
-               * This matches the GL specification's (s, t) convention, so the viewer samples correctly.
-               */
               private fun faceDirection(face: Int, u: Double, v: Double, out: DoubleArray) {
                   when (face) {
-                      0 -> { out[0] = 1.0;   out[1] = -v;   out[2] = -u }   // +X  right
-                      1 -> { out[0] = -1.0;  out[1] = -v;   out[2] = u }    // -X  left
-                      2 -> { out[0] = u;     out[1] = 1.0;  out[2] = v }    // +Y  top
-                      3 -> { out[0] = u;     out[1] = -1.0; out[2] = -v }   // -Y  bottom
-                      4 -> { out[0] = u;     out[1] = -v;   out[2] = 1.0 }  // +Z  back
-                      else -> { out[0] = -u; out[1] = -v;   out[2] = -1.0 } // -Z  front
+                      0 -> { out[0] = 1.0;   out[1] = -v;   out[2] = -u }
+                      1 -> { out[0] = -1.0;  out[1] = -v;   out[2] = u }
+                      2 -> { out[0] = u;     out[1] = 1.0;  out[2] = v }
+                      3 -> { out[0] = u;     out[1] = -1.0; out[2] = -v }
+                      4 -> { out[0] = u;     out[1] = -v;   out[2] = 1.0 }
+                      else -> { out[0] = -u; out[1] = -v;   out[2] = -1.0 }
                   }
               }
 
@@ -563,46 +506,37 @@ jobs:
                   val n = FACE_SIZE
                   val pixels = IntArray(n * n)
                   val dir = DoubleArray(3)
-
                   for (j in 0 until n) {
                       val v = 2.0 * (j + 0.5) / n - 1.0
                       for (i in 0 until n) {
                           val u = 2.0 * (i + 0.5) / n - 1.0
                           faceDirection(face, u, v, dir)
-
                           val len = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2])
-                          // Same convention as the panorama: forward at yaw 0 is -Z.
                           val lon = atan2(dir[0], -dir[2])
                           val lat = asin((dir[1] / len).coerceIn(-1.0, 1.0))
-
                           val ex = (lon / (2.0 * PI) + 0.5) * PANO_W - 0.5
                           val ey = (0.5 - lat / PI) * PANO_H - 0.5
                           pixels[j * n + i] = sampleBilinear(pano, ex, ey)
                       }
                   }
-
                   val bmp = Bitmap.createBitmap(n, n, Bitmap.Config.ARGB_8888)
                   bmp.setPixels(pixels, 0, n, 0, 0, n, n)
                   return bmp
               }
 
-              /** Bilinear lookup with horizontal wrap-around and vertical clamping. */
               private fun sampleBilinear(px: IntArray, fx: Double, fy: Double): Int {
                   val x0f = floor(fx)
                   val y0f = floor(fy)
                   val tx = (fx - x0f).toFloat()
                   val ty = (fy - y0f).toFloat()
-
                   val x0 = Math.floorMod(x0f.toInt(), PANO_W)
                   val x1 = Math.floorMod(x0f.toInt() + 1, PANO_W)
                   val y0 = y0f.toInt().coerceIn(0, PANO_H - 1)
                   val y1 = (y0f.toInt() + 1).coerceIn(0, PANO_H - 1)
-
                   val c00 = px[y0 * PANO_W + x0]
                   val c10 = px[y0 * PANO_W + x1]
                   val c01 = px[y1 * PANO_W + x0]
                   val c11 = px[y1 * PANO_W + x1]
-
                   return argb(
                       mix(chan(c00, 16), chan(c10, 16), chan(c01, 16), chan(c11, 16), tx, ty),
                       mix(chan(c00, 8), chan(c10, 8), chan(c01, 8), chan(c11, 8), tx, ty),
@@ -610,15 +544,10 @@ jobs:
                   )
               }
 
-              // ------------------------------------------------------------------------
-              // Helpers
-              // ------------------------------------------------------------------------
-
               private fun loadFramePixels(file: File): IntArray {
                   var bmp = BitmapFactory.decodeFile(file.absolutePath, BitmapFactory.Options().apply {
                       inPreferredConfig = Bitmap.Config.ARGB_8888
                   }) ?: throw IllegalStateException("Unreadable frame ${file.name}")
-
                   if (bmp.width != FRAME_W || bmp.height != FRAME_H) {
                       val scaled = Bitmap.createScaledBitmap(bmp, FRAME_W, FRAME_H, true)
                       bmp.recycle()
@@ -689,28 +618,14 @@ jobs:
           import java.util.zip.ZipFile
           import java.util.zip.ZipOutputStream
 
-          /**
-           * `.panco` container: a ZIP package with fixed entry names.
-           *
-           *   right.png, left.png, top.png, bottom.png, back.png, front.png   six cube faces (PNG)
-           *   thumb.jpg                                                       gallery preview
-           *   meta.json                                                       pose and projection metadata
-           *
-           * Face order matches the OpenGL cube-map target order so the viewer can upload faces directly.
-           */
           object PancoContainer {
-
               const val EXT = "panco"
-
-              /** Entry names in OpenGL cube-map target order: +X, -X, +Y, -Y, +Z, -Z. */
               val FACE_NAMES: Array<String> = arrayOf(
                   "right.png", "left.png", "top.png", "bottom.png", "back.png", "front.png"
               )
-
               private const val THUMB_ENTRY = "thumb.jpg"
               private const val META_ENTRY = "meta.json"
 
-              /** App-private directory for finished photos. Needs no storage permission. */
               fun dir(context: Context): File = File(context.filesDir, "panco").apply { mkdirs() }
 
               fun listNewestFirst(context: Context): List<File> =
@@ -719,11 +634,9 @@ jobs:
                       ?.sortedByDescending { it.lastModified() }
                       ?: emptyList()
 
-              /** Writes the container atomically: data goes to a temp file, then is renamed into place. */
               fun write(out: File, faces: Array<Bitmap>, thumb: Bitmap, meta: JSONObject) {
                   require(faces.size == FACE_NAMES.size) { "Expected ${FACE_NAMES.size} faces" }
                   val tmp = File(out.parentFile, out.name + ".tmp")
-
                   ZipOutputStream(FileOutputStream(tmp).buffered()).use { zip ->
                       faces.forEachIndexed { i, bmp ->
                           zip.putNextEntry(ZipEntry(FACE_NAMES[i]))
@@ -733,7 +646,6 @@ jobs:
                       zip.putNextEntry(ZipEntry(THUMB_ENTRY))
                       thumb.compress(Bitmap.CompressFormat.JPEG, 85, zip)
                       zip.closeEntry()
-
                       zip.putNextEntry(ZipEntry(META_ENTRY))
                       zip.write(meta.toString(2).toByteArray(Charsets.UTF_8))
                       zip.closeEntry()
@@ -741,7 +653,6 @@ jobs:
                   check(tmp.renameTo(out)) { "Could not finalise ${out.name}" }
               }
 
-              /** Reads only the small thumbnail. [sampleSize] downsamples further to save memory. */
               fun readThumb(file: File, sampleSize: Int): Bitmap? {
                   ZipFile(file).use { zf ->
                       val entry = zf.getEntry(THUMB_ENTRY) ?: return null
@@ -753,7 +664,6 @@ jobs:
                   }
               }
 
-              /** Reads all six faces. Use RGB_565 for the viewer to halve texture memory. */
               fun readFaces(file: File, config: Bitmap.Config): Array<Bitmap> {
                   ZipFile(file).use { zf ->
                       return Array(FACE_NAMES.size) { i ->
@@ -779,22 +689,9 @@ jobs:
           import android.hardware.SensorManager
           import kotlin.math.atan2
 
-          /**
-           * Tracks heading (yaw) and tilt.
-           *
-           * - Yaw comes from the fused ROTATION_VECTOR sensor. Many budget devices without a gyroscope
-           *   (including some Galaxy A12 variants) still provide this sensor, fused from accelerometer
-           *   and magnetometer. It is less stable but usable. When it is absent, [hasHeading] is false
-           *   and the app switches to manual capture.
-           * - Tilt comes from the raw accelerometer and drives the "hold upright" guidance.
-           */
           class PoseTracker(context: Context, private val listener: Listener) : SensorEventListener {
-
               interface Listener {
-                  /** Heading relative to the sweep start, in degrees [0, 360). */
                   fun onYaw(yawDeg: Float)
-
-                  /** Tilt from vertical in degrees. 0 means the phone is upright in portrait. */
                   fun onTilt(tiltDeg: Float)
               }
 
@@ -806,10 +703,7 @@ jobs:
               private val gyroPresent =
                   context.packageManager.hasSystemFeature(PackageManager.FEATURE_SENSOR_GYROSCOPE)
 
-              /** True when a heading sensor exists, so guided capture is possible. */
               val hasHeading: Boolean get() = rotationSensor != null
-
-              /** True when a physical gyroscope is present. Recorded in metadata for diagnostics. */
               val hasGyroscope: Boolean get() = gyroPresent
 
               private val rotationMatrix = FloatArray(9)
@@ -827,7 +721,6 @@ jobs:
                   startAzimuth = null
               }
 
-              /** Sets the current heading as 0°. Call when a new sweep begins. */
               fun resetHeading() {
                   startAzimuth = null
               }
@@ -836,15 +729,12 @@ jobs:
                   when (event.sensor.type) {
                       Sensor.TYPE_ROTATION_VECTOR -> {
                           SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
-                          // Portrait phone: the camera points along the device's Y axis, so remap to get
-                          // a heading that matches where the back camera faces.
                           SensorManager.remapCoordinateSystem(
                               rotationMatrix, SensorManager.AXIS_X, SensorManager.AXIS_Z, remapped
                           )
                           SensorManager.getOrientation(remapped, orientation)
                           val azimuth = orientation[0]
                           val start = startAzimuth ?: azimuth.also { startAzimuth = it }
-
                           var relDeg = Math.toDegrees((azimuth - start).toDouble()).toFloat()
                           relDeg = ((relDeg % 360f) + 360f) % 360f
                           listener.onYaw(relDeg)
@@ -873,9 +763,6 @@ jobs:
           import androidx.recyclerview.widget.RecyclerView
           import java.io.File
 
-          /**
-           * Horizontal strip of `.panco` thumbnails. Double-tapping a thumbnail opens it in the 3D viewer.
-           */
           class GalleryAdapter(
               private val items: MutableList<File>,
               private val loadThumb: (File, ImageView) -> Unit,
@@ -890,7 +777,6 @@ jobs:
                       view.context,
                       object : GestureDetector.SimpleOnGestureListener() {
                           override fun onDown(e: MotionEvent): Boolean = true
-
                           override fun onDoubleTap(e: MotionEvent): Boolean {
                               file?.let(onOpen)
                               return true
@@ -958,17 +844,6 @@ jobs:
           import java.util.concurrent.ExecutorService
           import kotlin.math.abs
 
-          /**
-           * Capture screen.
-           *
-           * Guided mode (rotation sensor present): tap Start, then rotate in place. A frame is captured
-           * every 12° of measured heading. After 30 frames the sweep finishes and the cubemap is built.
-           *
-           * Manual mode (no rotation sensor): tap Shoot for each step, turning roughly 12° between shots.
-           * Tilt guidance still works through the accelerometer.
-           *
-           * All sweep state is touched only on the main thread. Heavy work runs on [worker].
-           */
           class MainActivity : AppCompatActivity() {
 
               companion object {
@@ -988,15 +863,12 @@ jobs:
               private lateinit var galleryAdapter: GalleryAdapter
               private var imageCapture: ImageCapture? = null
 
-              /** Small LRU cache of decoded thumbnails. Bounded so memory stays low on 2 GB devices. */
               private val thumbCache = object : LruCache<String, Bitmap>(THUMB_CACHE_BYTES) {
                   override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
               }
 
-              // ---- Sweep state (main thread only) ----
               private val frames = mutableListOf<CubemapProcessor.Frame>()
               private var sessionDir: File? = null
-              /** Incremented whenever a sweep is cancelled or finished, so late camera callbacks are discarded. */
               private var generation = 0
               private var sweeping = false
               private var captureInFlight = false
@@ -1028,7 +900,6 @@ jobs:
                           currentYaw = yawDeg
                           onYawChanged()
                       }
-
                       override fun onTilt(tiltDeg: Float) {
                           currentTilt = tiltDeg
                           updateStatus()
@@ -1067,10 +938,6 @@ jobs:
                   super.onDestroy()
               }
 
-              // ------------------------------------------------------------------
-              // Camera
-              // ------------------------------------------------------------------
-
               private fun hasCameraPermission(): Boolean =
                   ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
                       PackageManager.PERMISSION_GRANTED
@@ -1083,7 +950,6 @@ jobs:
                           val preview = Preview.Builder().build().also {
                               it.setSurfaceProvider(viewFinder.surfaceProvider)
                           }
-                          // Request small frames so each capture is cheap to store and decode.
                           val capture = ImageCapture.Builder()
                               .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                               .setJpegQuality(85)
@@ -1111,7 +977,6 @@ jobs:
               private fun captureFrame(yawDeg: Float) {
                   val capture = imageCapture ?: return
                   captureInFlight = true
-
                   val dir = sessionDir ?: File(cacheDir, "sweep_${System.currentTimeMillis()}").also {
                       it.mkdirs()
                       sessionDir = it
@@ -1136,7 +1001,6 @@ jobs:
                                   finishSweep()
                               }
                           }
-
                           override fun onError(exc: ImageCaptureException) {
                               captureInFlight = false
                               Toast.makeText(this@MainActivity, R.string.error_capture, Toast.LENGTH_SHORT).show()
@@ -1145,14 +1009,10 @@ jobs:
                   )
               }
 
-              // ------------------------------------------------------------------
-              // Sweep control
-              // ------------------------------------------------------------------
-
               private fun onShutterPressed() {
                   if (processing || captureInFlight) return
                   when {
-                      !guided -> captureFrame(frames.size * CubemapProcessor.STEP_DEG) // manual: assumed heading
+                      !guided -> captureFrame(frames.size * CubemapProcessor.STEP_DEG)
                       sweeping -> cancelSweep()
                       else -> beginSweep()
                   }
@@ -1161,8 +1021,7 @@ jobs:
               private fun onYawChanged() {
                   updateStatus()
                   if (!sweeping || processing || captureInFlight) return
-                  if (abs(currentTilt) > MAX_TILT_DEG) return // wait until the phone is upright
-
+                  if (abs(currentTilt) > MAX_TILT_DEG) return
                   val target = frames.size * CubemapProcessor.STEP_DEG
                   if (currentYaw >= target) captureFrame(currentYaw)
               }
@@ -1192,7 +1051,6 @@ jobs:
                       Toast.makeText(this, R.string.error_not_enough_frames, Toast.LENGTH_SHORT).show()
                       return
                   }
-
                   val snapshot = frames.toList()
                   val session = sessionDir
                   val sensorMode = if (guided) "rotation_vector" else "manual_assumed_yaw"
@@ -1231,10 +1089,6 @@ jobs:
                   }
               }
 
-              // ------------------------------------------------------------------
-              // UI helpers
-              // ------------------------------------------------------------------
-
               private fun updateButtons() {
                   btnShutter.text = when {
                       !guided -> getString(R.string.shoot)
@@ -1262,7 +1116,6 @@ jobs:
                   galleryAdapter.setItems(PancoContainer.listNewestFirst(this))
               }
 
-              /** Shows a cached thumbnail, or decodes one on the worker thread. */
               private fun loadThumb(file: File, view: ImageView) {
                   view.tag = file
                   val cached = thumbCache.get(file.absolutePath)
@@ -1305,16 +1158,7 @@ jobs:
           import java.io.File
           import java.util.concurrent.ExecutorService
 
-          /**
-           * Immersive viewer for a `.panco` file.
-           *
-           * Controls (touch only, so it works on every device, including those without a gyroscope):
-           *  - Drag: orbit the camera inside the cube.
-           *  - Pinch: zoom (changes the field of view).
-           *  - Double-tap: reset to the front view.
-           */
           class ViewerActivity : AppCompatActivity() {
-
               companion object {
                   const val EXTRA_PATH = "panco_path"
               }
@@ -1342,7 +1186,6 @@ jobs:
                   renderer = CubemapRenderer()
                   glView.setEGLContextClientVersion(2)
                   glView.setRenderer(renderer)
-                  // Redraw only when the view changes, to save battery and CPU.
                   glView.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
 
                   scaleDetector = ScaleGestureDetector(
@@ -1360,20 +1203,17 @@ jobs:
                       this,
                       object : GestureDetector.SimpleOnGestureListener() {
                           override fun onDown(e: MotionEvent): Boolean = true
-
                           override fun onScroll(
                               e1: MotionEvent?,
                               e2: MotionEvent,
                               distanceX: Float,
                               distanceY: Float
                           ): Boolean {
-                              // Ignore drags while a pinch is in progress.
                               if (scaleDetector.isInProgress) return false
                               renderer.orbit(distanceX, distanceY, glView.height)
                               glView.requestRender()
                               return true
                           }
-
                           override fun onDoubleTap(e: MotionEvent): Boolean {
                               renderer.reset()
                               glView.requestRender()
@@ -1388,7 +1228,6 @@ jobs:
                       true
                   }
 
-                  // Decode the six faces off the UI thread, then hand them to the GL thread on the next frame.
                   worker.execute {
                       try {
                           val faces: Array<Bitmap> = PancoContainer.readFaces(File(path), Bitmap.Config.RGB_565)
@@ -1439,20 +1278,12 @@ jobs:
           import kotlin.math.sin
           import kotlin.math.tan
 
-          /**
-           * OpenGL ES 2.0 renderer for the cube.
-           *
-           * The camera sits at the centre of the cube. Each screen pixel becomes a view ray, which is
-           * rotated by the orbit state and used to sample a samplerCube. No geometry is needed beyond
-           * one fullscreen quad, which keeps GPU and memory cost low on the Galaxy A12.
-           */
           class CubemapRenderer : GLSurfaceView.Renderer {
-
               companion object {
                   const val DEFAULT_FOV = 70f
                   const val MIN_FOV = 25f
                   const val MAX_FOV = 90f
-                  const val MAX_PITCH = 1.45f // just under 90° to avoid gimbal flip
+                  const val MAX_PITCH = 1.45f
 
                   private const val VERTEX_SHADER = """
                       attribute vec2 aPos;
@@ -1475,10 +1306,7 @@ jobs:
                   """
               }
 
-              /** Faces waiting to be uploaded on the GL thread. Written by the UI thread. */
               @Volatile private var pendingFaces: Array<Bitmap>? = null
-
-              // Orbit state. Written by the UI thread and read by the GL thread.
               @Volatile var yaw = 0f
               @Volatile var pitch = 0f
               @Volatile var fovY = DEFAULT_FOV
@@ -1501,7 +1329,6 @@ jobs:
                       position(0)
                   }
 
-              /** OpenGL cube-map targets in the same order as [PancoContainer.FACE_NAMES]. */
               private val faceTargets = intArrayOf(
                   GLES20.GL_TEXTURE_CUBE_MAP_POSITIVE_X,
                   GLES20.GL_TEXTURE_CUBE_MAP_NEGATIVE_X,
@@ -1511,25 +1338,16 @@ jobs:
                   GLES20.GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
               )
 
-              // ------------------------------------------------------------------
-              // Called from the UI thread
-              // ------------------------------------------------------------------
-
               fun setFaces(faces: Array<Bitmap>) {
                   pendingFaces = faces
               }
 
-              /**
-               * Rotates the view from a drag. [distX] and [distY] are pixel distances from the gesture.
-               * Radians per pixel scales with the field of view, so the drag feels like it follows the finger.
-               */
               fun orbit(distX: Float, distY: Float, viewHeightPx: Int) {
                   val k = Math.toRadians(fovY.toDouble()).toFloat() / viewHeightPx.coerceAtLeast(1)
                   yaw += distX * k
                   pitch = (pitch - distY * k).coerceIn(-MAX_PITCH, MAX_PITCH)
               }
 
-              /** [scaleFactor] above 1 means pinch-out, which zooms in by narrowing the field of view. */
               fun zoom(scaleFactor: Float) {
                   fovY = (fovY / scaleFactor).coerceIn(MIN_FOV, MAX_FOV)
               }
@@ -1539,10 +1357,6 @@ jobs:
                   pitch = 0f
                   fovY = DEFAULT_FOV
               }
-
-              // ------------------------------------------------------------------
-              // GL thread
-              // ------------------------------------------------------------------
 
               override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
                   GLES20.glClearColor(0f, 0f, 0f, 1f)
@@ -1573,7 +1387,6 @@ jobs:
                       pendingFaces = null
                       uploadFaces(faces)
                   }
-
                   GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
                   if (!hasFaces) return
 
@@ -1592,7 +1405,6 @@ jobs:
                   GLES20.glDisableVertexAttribArray(aPos)
               }
 
-              /** Uploads the six faces to the cube map, then frees the CPU-side bitmaps. */
               private fun uploadFaces(faces: Array<Bitmap>) {
                   GLES20.glBindTexture(GLES20.GL_TEXTURE_CUBE_MAP, cubeTex)
                   for (i in faceTargets.indices) {
@@ -1602,19 +1414,15 @@ jobs:
                   hasFaces = true
               }
 
-              /**
-               * Rotation matrix R = Ry(yaw) * Rx(pitch), returned in column-major order for GL.
-               * With yaw = pitch = 0 the view looks down -Z, which is the "front" face.
-               */
               private fun rotationMatrix(yaw: Float, pitch: Float): FloatArray {
                   val cy = cos(yaw)
                   val sy = sin(yaw)
                   val cp = cos(pitch)
                   val sp = sin(pitch)
                   return floatArrayOf(
-                      cy, 0f, -sy,           // column 0
-                      sy * sp, cp, cy * sp,  // column 1
-                      sy * cp, -sp, cy * cp  // column 2
+                      cy, 0f, -sy,
+                      sy * sp, cp, cy * sp,
+                      sy * cp, -sp, cy * cp
                   )
               }
 
@@ -1645,15 +1453,32 @@ jobs:
           }
           EOF
 
-      - name: Verify generated project
+      # ------------------------------------------------------------------
+      # Step 4: Python Build Validator & Helper
+      # ------------------------------------------------------------------
+      - name: Set up Python & Run Auto-Validator Helper
         run: |
-          set -euo pipefail
-          find . -path ./.git -prune -o -type f \( -name "*.gradle" -o -name "*.kt" -o -name "*.xml" -o -name "*.properties" \) -print | sort
-          test -f app/src/main/java/com/zeeshan/cameraapp/MainActivity.kt
-          test -f app/src/main/AndroidManifest.xml
+          python3 -c "
+          import os, sys
+          print('🐍 Python Environment Loaded Successfully!')
+          print('🔍 Validating project files and structure...')
+          required_files = [
+              'app/build.gradle',
+              'app/src/main/AndroidManifest.xml',
+              'app/src/main/java/com/zeeshan/cameraapp/MainActivity.kt',
+              'app/src/main/java/com/zeeshan/cameraapp/CubemapProcessor.kt'
+          ]
+          for f in required_files:
+              if os.path.exists(f):
+                  print(f'  [OK] Found: {f}')
+              else:
+                  print(f'  [ERROR] Missing: {f}')
+                  sys.exit(1)
+          print('✨ All project checks passed via Python helper! Ready for Gradle build.')
+          "
 
       # ------------------------------------------------------------------
-      # Step 4: Compile and package
+      # Step 5: Compile and package
       # ------------------------------------------------------------------
       - name: Build debug APK
         run: gradle :app:assembleDebug --no-daemon --stacktrace
