@@ -17,7 +17,12 @@ jobs:
   build:
     name: Generate and build debug APK
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
+
+    env:
+      ANDROID_SDK_ROOT: ${{ github.workspace }}/.android-sdk
+      ANDROID_HOME: ${{ github.workspace }}/.android-sdk
+      GRADLE_OPTS: -Xmx3072m -Dfile.encoding=UTF-8
 
     steps:
       - name: Checkout repository
@@ -29,28 +34,36 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Set up Robust Android SDK & Command-Line Tools
+      # ------------------------------------------------------------------
+      # Step 0: Android SDK, installed from Google's official command-line tools
+      # ------------------------------------------------------------------
+      - name: Install Android SDK and command-line tools
         run: |
           set -euo pipefail
-          echo "📂 Setting up Android SDK manually to bypass outdated action errors..."
-          export ANDROID_SDK_ROOT=$HOME/android-sdk
-          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
-          
-          # Download latest official Android command-line tools directly from Google
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O commandlinetools.zip
-          unzip -q commandlinetools.zip -d $ANDROID_SDK_ROOT/cmdline-tools
-          mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest
-          rm commandlinetools.zip
+          echo "Installing Android SDK from official command-line tools..."
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
 
-          # Configure paths
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
-          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
+          wget -q --tries=3 \
+            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
+            -O "$RUNNER_TEMP/commandlinetools.zip"
+          unzip -q "$RUNNER_TEMP/commandlinetools.zip" -d "$RUNNER_TEMP/cmdline-extract"
+          rm -rf "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          mv "$RUNNER_TEMP/cmdline-extract/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          rm -f "$RUNNER_TEMP/commandlinetools.zip"
+          rm -rf "$RUNNER_TEMP/cmdline-extract"
 
-          # Accept SDK licenses and install required packages
-          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+
+          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
+          # yes(1) gets SIGPIPE once sdkmanager closes stdin, so pipefail must not fail the step.
+          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses > /dev/null || true
+          sdkmanager --sdk_root="$ANDROID_SDK_ROOT" \
+            "platforms;android-34" \
+            "build-tools;34.0.0" \
+            "platform-tools"
 
       - name: Set up Gradle 8.5
         uses: gradle/actions/setup-gradle@v4
@@ -67,6 +80,8 @@ jobs:
           mkdir -p app/src/main/java/com/zeeshan/cameraapp
           mkdir -p app/src/main/res/layout
           mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/drawable
+          mkdir -p app/src/main/res/mipmap-anydpi-v26
           mkdir -p .github/workflows
 
           cat > settings.gradle <<'EOF'
@@ -111,8 +126,8 @@ jobs:
                   applicationId "com.zeeshan.cameraapp"
                   minSdk 26
                   targetSdk 34
-                  versionCode 2
-                  versionName "2.0"
+                  versionCode 3
+                  versionName "2.1"
               }
 
               buildTypes {
@@ -159,7 +174,9 @@ jobs:
               <application
                   android:allowBackup="false"
                   android:hardwareAccelerated="true"
+                  android:icon="@mipmap/ic_launcher"
                   android:label="@string/app_name"
+                  android:roundIcon="@mipmap/ic_launcher_round"
                   android:supportsRtl="true"
                   android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
 
@@ -182,9 +199,9 @@ jobs:
           EOF
 
       # ------------------------------------------------------------------
-      # Step 2: Resources (strings, colours, layouts)
+      # Step 2: Resources (colours, strings, icon, layouts)
       # ------------------------------------------------------------------
-      - name: Generate Android resources
+      - name: Generate Android resources and launcher icon
         run: |
           set -euo pipefail
 
@@ -194,6 +211,8 @@ jobs:
               <color name="app_bg">#030712</color>
               <color name="accent">#8B5CF6</color>
               <color name="thumb_bg">#1F2937</color>
+              <color name="icon_background_start">#A78BFA</color>
+              <color name="icon_background_end">#3B0764</color>
           </resources>
           EOF
 
@@ -220,6 +239,93 @@ jobs:
               <string name="viewer_hint">Drag to look · Pinch to zoom · Double-tap to reset</string>
               <string name="thumb_desc">3D photo thumbnail</string>
           </resources>
+          EOF
+
+          # Adaptive launcher icon: background gradient (drawable)
+          cat > app/src/main/res/drawable/ic_launcher_background.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:aapt="http://schemas.android.com/aapt"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="108"
+              android:viewportHeight="108">
+              <path android:pathData="M0,0h108v108h-108z">
+                  <aapt:attr name="android:fillColor">
+                      <gradient
+                          android:type="radial"
+                          android:centerX="54"
+                          android:centerY="40"
+                          android:gradientRadius="90"
+                          android:startColor="@color/icon_background_start"
+                          android:endColor="@color/icon_background_end" />
+                  </aapt:attr>
+              </path>
+          </vector>
+          EOF
+
+          # Adaptive launcher icon: 3D camera with lens, viewfinder and shutter dot (foreground)
+          cat > app/src/main/res/drawable/ic_launcher_foreground.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="108"
+              android:viewportHeight="108">
+
+              <!-- Camera body -->
+              <path
+                  android:fillColor="#F9FAFB"
+                  android:pathData="M32,36 H76 A6,6 0 0 1 82,42 V68 A6,6 0 0 1 76,74 H32 A6,6 0 0 1 26,68 V42 A6,6 0 0 1 32,36 Z" />
+
+              <!-- Viewfinder bump on top of the body -->
+              <path
+                  android:fillColor="#F9FAFB"
+                  android:pathData="M42,36 L46,30 H62 L66,36 Z" />
+
+              <!-- Outer lens ring -->
+              <path
+                  android:fillColor="#4C1D95"
+                  android:pathData="M41,55 A13,13 0 1,0 67,55 A13,13 0 1,0 41,55 Z" />
+
+              <!-- Lens barrel -->
+              <path
+                  android:fillColor="#111827"
+                  android:pathData="M45,55 A9,9 0 1,0 63,55 A9,9 0 1,0 45,55 Z" />
+
+              <!-- Glass core -->
+              <path
+                  android:fillColor="#8B5CF6"
+                  android:pathData="M49,55 A5,5 0 1,0 59,55 A5,5 0 1,0 49,55 Z" />
+
+              <!-- Glass highlight -->
+              <path
+                  android:fillColor="#FFFFFF"
+                  android:fillAlpha="0.85"
+                  android:pathData="M50,52 A2,2 0 1,0 54,52 A2,2 0 1,0 50,52 Z" />
+
+              <!-- Shutter / flash dot -->
+              <path
+                  android:fillColor="#F59E0B"
+                  android:pathData="M76,44 A2.5,2.5 0 1,0 81,44 A2.5,2.5 0 1,0 76,44 Z" />
+          </vector>
+          EOF
+
+          # Adaptive icon descriptors (minSdk 26 means all devices use adaptive icons)
+          cat > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@drawable/ic_launcher_background" />
+              <foreground android:drawable="@drawable/ic_launcher_foreground" />
+          </adaptive-icon>
+          EOF
+
+          cat > app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@drawable/ic_launcher_background" />
+              <foreground android:drawable="@drawable/ic_launcher_foreground" />
+          </adaptive-icon>
           EOF
 
           cat > app/src/main/res/layout/activity_main.xml <<'EOF'
@@ -696,9 +802,9 @@ jobs:
               }
 
               private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-              private val rotationSensor: android.hardware.Sensor? =
+              private val rotationSensor: Sensor? =
                   sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
-              private val accelSensor: android.hardware.Sensor? =
+              private val accelSensor: Sensor? =
                   sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
               private val gyroPresent =
                   context.packageManager.hasSystemFeature(PackageManager.FEATURE_SENSOR_GYROSCOPE)
@@ -747,7 +853,7 @@ jobs:
                   }
               }
 
-              override fun onAccuracyChanged(sensor: android.hardware.Sensor?, accuracy: Int) = Unit
+              override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
           }
           EOF
 
@@ -1454,28 +1560,77 @@ jobs:
           EOF
 
       # ------------------------------------------------------------------
-      # Step 4: Python Build Validator & Helper
+      # Step 4: Python validator (well-formed XML, required files, icon wiring)
       # ------------------------------------------------------------------
-      - name: Set up Python & Run Auto-Validator Helper
+      - name: Validate generated project with Python
         run: |
-          python3 -c "
-          import os, sys
-          print('🐍 Python Environment Loaded Successfully!')
-          print('🔍 Validating project files and structure...')
-          required_files = [
-              'app/build.gradle',
-              'app/src/main/AndroidManifest.xml',
-              'app/src/main/java/com/zeeshan/cameraapp/MainActivity.kt',
-              'app/src/main/java/com/zeeshan/cameraapp/CubemapProcessor.kt'
+          python3 - <<'PY'
+          import os, sys, glob
+          import xml.etree.ElementTree as ET
+
+          print("Python validator starting...")
+          errors = []
+
+          required = [
+              "settings.gradle",
+              "build.gradle",
+              "gradle.properties",
+              "app/build.gradle",
+              "app/src/main/AndroidManifest.xml",
+              "app/src/main/res/values/strings.xml",
+              "app/src/main/res/values/colors.xml",
+              "app/src/main/res/layout/activity_main.xml",
+              "app/src/main/res/layout/activity_viewer.xml",
+              "app/src/main/res/layout/item_thumb.xml",
+              "app/src/main/res/drawable/ic_launcher_background.xml",
+              "app/src/main/res/drawable/ic_launcher_foreground.xml",
+              "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+              "app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+              "app/src/main/java/com/zeeshan/cameraapp/MainActivity.kt",
+              "app/src/main/java/com/zeeshan/cameraapp/ViewerActivity.kt",
+              "app/src/main/java/com/zeeshan/cameraapp/CubemapProcessor.kt",
+              "app/src/main/java/com/zeeshan/cameraapp/CubemapRenderer.kt",
+              "app/src/main/java/com/zeeshan/cameraapp/PancoContainer.kt",
+              "app/src/main/java/com/zeeshan/cameraapp/PoseTracker.kt",
+              "app/src/main/java/com/zeeshan/cameraapp/GalleryAdapter.kt",
           ]
-          for f in required_files:
-              if os.path.exists(f):
-                  print(f'  [OK] Found: {f}')
+          for f in required:
+              if os.path.isfile(f) and os.path.getsize(f) > 0:
+                  print(f"  [OK] {f}")
               else:
-                  print(f'  [ERROR] Missing: {f}')
-                  sys.exit(1)
-          print('✨ All project checks passed via Python helper! Ready for Gradle build.')
-          "
+                  print(f"  [MISSING] {f}")
+                  errors.append(f)
+
+          # Every XML file must be well-formed.
+          for xml_file in glob.glob("**/*.xml", recursive=True):
+              if "/build/" in xml_file or xml_file.startswith(".git"):
+                  continue
+              try:
+                  ET.parse(xml_file)
+              except ET.ParseError as e:
+                  print(f"  [XML ERROR] {xml_file}: {e}")
+                  errors.append(xml_file)
+
+          # The manifest must reference the launcher icon and the icon must exist.
+          manifest = open("app/src/main/AndroidManifest.xml", encoding="utf-8").read()
+          for ref in ["@mipmap/ic_launcher", "@mipmap/ic_launcher_round", "MainActivity", "ViewerActivity"]:
+              if ref in manifest:
+                  print(f"  [OK] manifest references {ref}")
+              else:
+                  print(f"  [ERROR] manifest missing {ref}")
+                  errors.append(ref)
+
+          # Every Kotlin file must declare the package.
+          for kt in glob.glob("app/src/main/java/com/zeeshan/cameraapp/*.kt"):
+              if "package com.zeeshan.cameraapp" not in open(kt, encoding="utf-8").read():
+                  print(f"  [ERROR] bad package in {kt}")
+                  errors.append(kt)
+
+          if errors:
+              print(f"Validation failed with {len(errors)} problem(s).")
+              sys.exit(1)
+          print("All checks passed. Ready for Gradle build.")
+          PY
 
       # ------------------------------------------------------------------
       # Step 5: Compile and package
