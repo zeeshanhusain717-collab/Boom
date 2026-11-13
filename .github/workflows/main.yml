@@ -1,57 +1,68 @@
-name: Build Zeeshan Vedio Pyle Pro APK
+name: Build Zeeshan Camera Pro APK
 
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [main, master]
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
-    name: Build Pure Offline Advanced Video Player APK
+    name: Generate and build debug APK
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
-      - name: Checkout Code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Java 17
+      - name: Set up JDK 17 (Temurin)
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Gradle
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform and build tools
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+
+      - name: Set up Gradle 8.5
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.5"
+          gradle-version: '8.5'
 
-      - name: Generate Build Configurations
+      # ------------------------------------------------------------------
+      # Step 1: Gradle build scripts and project settings
+      # ------------------------------------------------------------------
+      - name: Generate Gradle build files
         run: |
           set -euo pipefail
-          mkdir -p app/src/main/java/com/zeeshan/videopyle
-          mkdir -p app/src/main/res/values
-          mkdir -p app/src/main/res/drawable
+          rm -rf app
+          mkdir -p app/src/main/java/com/zeeshan/cameraapp
           mkdir -p app/src/main/res/layout
-
-          cat > gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8
-          android.useAndroidX=true
-          android.nonTransitiveRClass=true
-          org.gradle.daemon=false
-          EOF
+          mkdir -p app/src/main/res/values
+          mkdir -p .github/workflows
 
           cat > settings.gradle <<'EOF'
-          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          pluginManagement {
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
+          }
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
               repositories { google(); mavenCentral() }
           }
-          rootProject.name = "ZeeshanVedioPyle"
+          rootProject.name = "ZeeshanCameraPro"
           include(":app")
           EOF
 
@@ -62,582 +73,1594 @@ jobs:
           }
           EOF
 
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx3072m -Dfile.encoding=UTF-8
+          org.gradle.parallel=true
+          org.gradle.caching=true
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          kotlin.code.style=official
+          EOF
+
           cat > app/build.gradle <<'EOF'
           plugins {
               id "com.android.application"
               id "org.jetbrains.kotlin.android"
           }
+
           android {
-              namespace "com.zeeshan.videopyle"
+              namespace "com.zeeshan.cameraapp"
               compileSdk 34
+
               defaultConfig {
-                  applicationId "com.zeeshan.videopyle"
-                  minSdk 24
+                  applicationId "com.zeeshan.cameraapp"
+                  minSdk 26
                   targetSdk 34
-                  versionCode 5
-                  versionName "5.0.PRO"
+                  versionCode 2
+                  versionName "2.0"
               }
-              buildTypes { 
-                  release { minifyEnabled false } 
+
+              buildTypes {
+                  release {
+                      // Shrinking is off: no custom ProGuard rules are shipped, and CameraX/zip paths are reflection-sensitive.
+                      minifyEnabled false
+                  }
+                  debug {
+                      minifyEnabled false
+                  }
               }
+
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
-              kotlinOptions { jvmTarget = "17" }
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
           }
+
           dependencies {
               implementation "androidx.core:core-ktx:1.13.1"
               implementation "androidx.appcompat:appcompat:1.7.0"
               implementation "com.google.android.material:material:1.12.0"
-              implementation "androidx.constraintlayout:constraintlayout:2.1.4"
-              
               implementation "androidx.recyclerview:recyclerview:1.3.2"
-              
-              implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
-              implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.7.0"
-              
-              implementation "androidx.media3:media3-exoplayer:1.3.1"
-              implementation "androidx.media3:media3-ui:1.3.1"
-              implementation "androidx.media3:media3-common:1.3.1"
-              
-              implementation "com.github.bumptech.glide:glide:4.16.0"
+              implementation "androidx.camera:camera-core:1.3.1"
+              implementation "androidx.camera:camera-camera2:1.3.1"
+              implementation "androidx.camera:camera-lifecycle:1.3.1"
+              implementation "androidx.camera:camera-view:1.3.1"
           }
-          EOF
-
-      - name: Generate Resources, App Icon & Custom 3D Layouts
-        run: |
-          set -euo pipefail
-
-          cat > app/src/main/res/values/strings.xml <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <string name="app_name">Zeeshan Vedio Pyle</string>
-          </resources>
-          EOF
-
-          cat > app/src/main/res/drawable/ic_launcher.xml <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="512dp" android:height="512dp" android:viewportWidth="512" android:viewportHeight="512">
-              <path android:pathData="M256,0 C114.6,0 0,114.6 0,256 C0,397.4 114.6,512 256,512 C397.4,512 512,397.4 512,256 C512,114.6 397.4,0 256,0 Z" android:fillColor="#FFFFFF"/>
-              <path android:pathData="M256,16 C123.4,16 16,123.4 16,256 C16,388.6 123.4,496 256,496 C388.6,496 496,388.6 496,256 C496,123.4 388.6,16 256,16 Z" android:fillColor="#4E342E"/>
-              <path android:pathData="M160,160 L352,160 L200,320 L352,320 L352,352 L160,352 L312,192 L160,192 Z" android:fillColor="#FFFFFF"/>
-          </vector>
-          EOF
-
-          cat > app/src/main/res/drawable/bg_3d_pill.xml <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <corners android:radius="30dp" />
-              <gradient android:startColor="#80000000" android:endColor="#993E2723" android:angle="270" />
-              <stroke android:width="1dp" android:color="#4DFFFFFF" />
-          </shape>
-          EOF
-
-          cat > app/src/main/res/drawable/bg_3d_panel.xml <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <gradient android:startColor="#E61A1A1A" android:endColor="#B3000000" android:angle="270" />
-              <stroke android:width="1dp" android:color="#33FFFFFF" />
-          </shape>
-          EOF
-
-          cat > app/src/main/res/drawable/bg_3d_button.xml <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <corners android:radius="8dp" />
-              <solid android:color="#4DFFFFFF" />
-              <stroke android:width="1dp" android:color="#80FFFFFF" />
-          </shape>
-          EOF
-
-          cat > app/src/main/res/layout/activity_main.xml <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:layout_width="match_parent" android:layout_height="match_parent"
-              android:orientation="vertical" android:background="#F7F5F4">
-              <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                  android:background="#4E342E" android:padding="16dp" android:elevation="8dp">
-                  <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                      android:text="Zeeshan Vedio Pyle" android:textColor="#FFFFFF" android:textSize="22sp" android:textStyle="bold"/>
-              </LinearLayout>
-              <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                  android:background="#3E2723" android:elevation="4dp" android:orientation="horizontal">
-                  <TextView android:id="@+id/tab_folders" android:layout_width="0dp" android:layout_height="wrap_content"
-                      android:layout_weight="1" android:text="FOLDERS" android:textColor="#FFFFFF" android:gravity="center"
-                      android:paddingVertical="12dp" android:textStyle="bold" android:textSize="14sp"/>
-                  <TextView android:id="@+id/tab_videos" android:layout_width="0dp" android:layout_height="wrap_content"
-                      android:layout_weight="1" android:text="ALL VIDEOS" android:textColor="#D7CCC8" android:gravity="center"
-                      android:paddingVertical="12dp" android:textStyle="bold" android:textSize="14sp"/>
-              </LinearLayout>
-              <androidx.recyclerview.widget.RecyclerView
-                  android:id="@+id/recycler_view" android:layout_width="match_parent" android:layout_height="match_parent"
-                  android:padding="8dp" android:clipToPadding="false"/>
-          </LinearLayout>
-          EOF
-
-          cat > app/src/main/res/layout/activity_player.xml <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              xmlns:app="http://schemas.android.com/apk/res-auto"
-              android:layout_width="match_parent" android:layout_height="match_parent" android:background="#000000">
-
-              <androidx.media3.ui.PlayerView
-                  android:id="@+id/player_view" android:layout_width="match_parent" android:layout_height="match_parent"
-                  app:controller_layout_id="@layout/exo_player_control_view" app:show_buffering="when_playing" app:use_controller="true"/>
-
-              <LinearLayout
-                  android:id="@+id/hud_layout" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                  android:layout_centerInParent="true" android:background="@drawable/bg_3d_pill"
-                  android:paddingHorizontal="32dp" android:paddingVertical="16dp" android:visibility="gone"
-                  android:elevation="10dp" android:gravity="center">
-                  <TextView android:id="@+id/hud_text" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                      android:textColor="#FFFFFF" android:textSize="20sp" android:textStyle="bold"/>
-              </LinearLayout>
-              
-              <ImageButton
-                  android:id="@+id/btn_unlock" android:layout_width="72dp" android:layout_height="72dp"
-                  android:layout_centerVertical="true" android:layout_alignParentStart="true" android:layout_marginStart="32dp"
-                  android:background="@drawable/bg_3d_pill" android:src="@android:drawable/ic_secure"
-                  android:tint="#FFFFFF" android:visibility="gone" android:elevation="12dp" android:padding="16dp"/>
-          </RelativeLayout>
-          EOF
-
-          cat > app/src/main/res/layout/exo_player_control_view.xml <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:id="@+id/control_root" android:layout_width="match_parent" android:layout_height="match_parent" android:background="#1A000000">
-              <LinearLayout android:id="@+id/top_bar" android:layout_width="match_parent" android:layout_height="wrap_content"
-                  android:orientation="horizontal" android:padding="12dp" android:background="@drawable/bg_3d_panel" android:gravity="center_vertical">
-                  <ImageButton android:id="@+id/btn_back" android:layout_width="48dp" android:layout_height="48dp"
-                      android:background="?attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_menu_revert" android:tint="#FFFFFF"/>
-                  <TextView android:id="@+id/tv_title" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-                      android:textColor="#FFFFFF" android:textSize="18sp" android:textStyle="bold" android:layout_marginHorizontal="12dp" android:maxLines="1" android:ellipsize="end"/>
-                  <TextView android:id="@+id/btn_audio_track" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🎵" android:textSize="22sp" android:padding="8dp"/>
-                  <TextView android:id="@+id/btn_subtitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="💬" android:textSize="22sp" android:padding="8dp"/>
-                  <TextView android:id="@+id/btn_decoder" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="HW"
-                      android:textColor="#FFFFFF" android:textSize="14sp" android:textStyle="bold" android:background="@drawable/bg_3d_button" android:padding="8dp" android:layout_marginStart="8dp"/>
-                  <TextView android:id="@+id/btn_top_speed" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="1.0x"
-                      android:textColor="#FFFFFF" android:textSize="14sp" android:textStyle="bold" android:background="@drawable/bg_3d_button" android:padding="8dp" android:layout_marginStart="8dp"/>
-              </LinearLayout>
-
-              <LinearLayout android:id="@+id/floating_pill" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                  android:layout_below="@id/top_bar" android:layout_centerHorizontal="true" android:layout_marginTop="16dp"
-                  android:background="@drawable/bg_3d_pill" android:padding="8dp" android:gravity="center">
-                  <TextView android:id="@+id/pill_boost" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🎧" android:textSize="20sp" android:padding="12dp"/>
-                  <TextView android:id="@+id/pill_rotate" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🔄" android:textSize="20sp" android:padding="12dp"/>
-                  <TextView android:id="@+id/pill_collapse" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text=">" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="18sp" android:padding="12dp"/>
-              </LinearLayout>
-
-              <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_centerInParent="true">
-                  <ImageButton android:id="@id/exo_prev" android:layout_width="64dp" android:layout_height="64dp" android:background="?attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_media_previous" android:tint="#FFFFFF"/>
-                  <ImageButton android:id="@id/exo_play_pause" android:layout_width="80dp" android:layout_height="80dp" android:layout_marginHorizontal="32dp" android:background="?attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_media_play" android:tint="#FFFFFF"/>
-                  <ImageButton android:id="@id/exo_next" android:layout_width="64dp" android:layout_height="64dp" android:background="?attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_media_next" android:tint="#FFFFFF"/>
-              </LinearLayout>
-
-              <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_alignParentBottom="true"
-                  android:background="@drawable/bg_3d_panel" android:padding="12dp" android:gravity="center_vertical">
-                  <ImageButton android:id="@+id/btn_lock" android:layout_width="40dp" android:layout_height="40dp" android:background="?attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_secure" android:tint="#FFFFFF" android:layout_marginEnd="8dp"/>
-                  <TextView android:id="@id/exo_position" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="14sp"/>
-                  <androidx.media3.ui.DefaultTimeBar android:id="@id/exo_progress" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:paddingHorizontal="12dp"/>
-                  <TextView android:id="@id/exo_duration" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="14sp" android:paddingEnd="12dp"/>
-                  <TextView android:id="@+id/btn_aspect_ratio" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="⛶" android:textColor="#FFFFFF" android:textSize="24sp" android:background="?attr/selectableItemBackgroundBorderless" android:padding="4dp"/>
-              </LinearLayout>
-          </RelativeLayout>
           EOF
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
-              <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-              <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
-              <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-              <application android:allowBackup="false" android:label="@string/app_name" android:icon="@drawable/ic_launcher"
-                  android:roundIcon="@drawable/ic_launcher" android:supportsRtl="true" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
-                  <activity android:name=".MainActivity" android:exported="true" android:configChanges="orientation|screenSize|keyboardHidden">
+              <!-- Camera is mandatory. Gyroscope and compass are optional: the app falls back gracefully. -->
+              <uses-feature android:name="android.hardware.camera.any" android:required="true" />
+              <uses-feature android:name="android.hardware.sensor.gyroscope" android:required="false" />
+              <uses-feature android:name="android.hardware.sensor.compass" android:required="false" />
+              <uses-feature android:glEsVersion="0x00020000" android:required="true" />
+
+              <uses-permission android:name="android.permission.CAMERA" />
+
+              <!-- Photos live in app-private storage (filesDir), so no storage permission is needed on any API level. -->
+
+              <application
+                  android:allowBackup="false"
+                  android:hardwareAccelerated="true"
+                  android:label="@string/app_name"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:screenOrientation="portrait">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
-                  <activity android:name=".PlayerActivity" android:exported="false" android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden" android:theme="@style/Theme.AppCompat.NoActionBar"/>
+
+                  <activity
+                      android:name=".ViewerActivity"
+                      android:exported="false"
+                      android:screenOrientation="portrait" />
               </application>
           </manifest>
           EOF
 
-      - name: Write Kotlin Source Code
+      # ------------------------------------------------------------------
+      # Step 2: Resources (strings, colours, layouts)
+      # ------------------------------------------------------------------
+      - name: Generate Android resources
         run: |
-          cat > app/src/main/java/com/zeeshan/videopyle/MainActivity.kt <<'EOF'
-          package com.zeeshan.videopyle
+          set -euo pipefail
+
+          cat > app/src/main/res/values/colors.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="app_bg">#030712</color>
+              <color name="accent">#8B5CF6</color>
+              <color name="thumb_bg">#1F2937</color>
+          </resources>
+          EOF
+
+          cat > app/src/main/res/values/strings.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">Zeeshan Camera Pro</string>
+              <string name="shoot">Shoot</string>
+              <string name="start_sweep">Start 360° sweep</string>
+              <string name="cancel">Cancel</string>
+              <string name="finish">Finish</string>
+              <string name="camera_denied">Camera permission is required</string>
+              <string name="error_camera">Camera failed to start</string>
+              <string name="error_capture">Capture failed, try again</string>
+              <string name="error_build">Could not build the 3D photo</string>
+              <string name="error_open">Could not open this 3D photo</string>
+              <string name="error_not_enough_frames">Capture at least 6 frames first</string>
+              <string name="building">Building cubemap… %1$d%%</string>
+              <string name="saved">3D photo saved</string>
+              <string name="manual_mode">Manual mode: no rotation sensor</string>
+              <string name="tilt_warning">Hold phone upright</string>
+              <string name="progress_frames">Frames: %1$d · %2$d°</string>
+              <string name="progress_manual">Frames: %1$d</string>
+              <string name="viewer_hint">Drag to look · Pinch to zoom · Double-tap to reset</string>
+              <string name="thumb_desc">3D photo thumbnail</string>
+          </resources>
+          EOF
+
+          cat > app/src/main/res/layout/activity_main.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:background="@color/app_bg">
+
+              <androidx.camera.view.PreviewView
+                  android:id="@+id/viewFinder"
+                  android:layout_width="match_parent"
+                  android:layout_height="match_parent" />
+
+              <TextView
+                  android:id="@+id/statusText"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:layout_gravity="top|center_horizontal"
+                  android:layout_marginTop="48dp"
+                  android:background="#B3000000"
+                  android:padding="10dp"
+                  android:textColor="@android:color/white"
+                  android:textSize="14sp" />
+
+              <ProgressBar
+                  android:id="@+id/busyIndicator"
+                  android:layout_width="56dp"
+                  android:layout_height="56dp"
+                  android:layout_gravity="center"
+                  android:indeterminate="true"
+                  android:visibility="gone" />
+
+              <LinearLayout
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:layout_gravity="bottom"
+                  android:orientation="vertical"
+                  android:paddingBottom="24dp">
+
+                  <androidx.recyclerview.widget.RecyclerView
+                      android:id="@+id/galleryList"
+                      android:layout_width="match_parent"
+                      android:layout_height="80dp"
+                      android:paddingHorizontal="8dp" />
+
+                  <LinearLayout
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content"
+                      android:gravity="center"
+                      android:orientation="horizontal"
+                      android:paddingTop="12dp">
+
+                      <Button
+                          android:id="@+id/btnShutter"
+                          android:layout_width="wrap_content"
+                          android:layout_height="wrap_content"
+                          android:backgroundTint="@color/accent"
+                          android:text="@string/shoot"
+                          android:textColor="@android:color/white" />
+
+                      <Button
+                          android:id="@+id/btnFinish"
+                          android:layout_width="wrap_content"
+                          android:layout_height="wrap_content"
+                          android:layout_marginStart="16dp"
+                          android:text="@string/finish" />
+                  </LinearLayout>
+              </LinearLayout>
+          </FrameLayout>
+          EOF
+
+          cat > app/src/main/res/layout/activity_viewer.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:background="@color/app_bg">
+
+              <android.opengl.GLSurfaceView
+                  android:id="@+id/glView"
+                  android:layout_width="match_parent"
+                  android:layout_height="match_parent" />
+
+              <ProgressBar
+                  android:id="@+id/loading"
+                  android:layout_width="48dp"
+                  android:layout_height="48dp"
+                  android:layout_gravity="center"
+                  android:indeterminate="true" />
+
+              <TextView
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:layout_gravity="bottom|center_horizontal"
+                  android:layout_marginBottom="32dp"
+                  android:background="#B3000000"
+                  android:padding="8dp"
+                  android:text="@string/viewer_hint"
+                  android:textColor="@android:color/white"
+                  android:textSize="12sp" />
+          </FrameLayout>
+          EOF
+
+          cat > app/src/main/res/layout/item_thumb.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="72dp"
+              android:layout_height="72dp"
+              android:padding="2dp">
+
+              <ImageView
+                  android:id="@+id/thumbImage"
+                  android:layout_width="match_parent"
+                  android:layout_height="match_parent"
+                  android:background="@color/thumb_bg"
+                  android:contentDescription="@string/thumb_desc"
+                  android:scaleType="centerCrop" />
+          </FrameLayout>
+          EOF
+
+      # ------------------------------------------------------------------
+      # Step 3: Kotlin sources
+      # ------------------------------------------------------------------
+      - name: Generate Kotlin sources
+        run: |
+          set -euo pipefail
+          SRC=app/src/main/java/com/zeeshan/cameraapp
+
+          cat > $SRC/CubemapProcessor.kt <<'EOF'
+          package com.zeeshan.cameraapp
+
+          import android.graphics.Bitmap
+          import android.graphics.BitmapFactory
+          import android.os.Process
+          import org.json.JSONArray
+          import org.json.JSONObject
+          import java.io.File
+          import java.util.concurrent.ExecutorService
+          import java.util.concurrent.Executors
+          import kotlin.math.PI
+          import kotlin.math.abs
+          import kotlin.math.asin
+          import kotlin.math.atan2
+          import kotlin.math.cos
+          import kotlin.math.floor
+          import kotlin.math.sqrt
+          import kotlin.math.tan
+
+          /**
+           * Converts a sweep of captured frames into a `.panco` package.
+           *
+           * Pipeline:
+           *  1. Each frame is projected at its measured yaw into an equirectangular panorama
+           *     (pinhole model, cosine-feathered weights in overlaps so seams fade out).
+           *  2. Each of the six cube faces is produced by mapping every face pixel to a world direction
+           *     and sampling the panorama in that direction. Adjacent faces share exact edge directions,
+           *     so their borders join without a visible seam.
+           *
+           * Memory: frames are decoded one at a time. Only float accumulators for the panorama
+           * (about 16 bytes per panorama pixel) and six 512x512 faces stay resident.
+           * All work runs on a background thread; never call this on the UI thread.
+           */
+          object CubemapProcessor {
+
+              // ---- Capture geometry ----
+              /** Yaw step between automatic captures, in degrees. */
+              const val STEP_DEG = 12f
+              /** Frames needed for a full 360° sweep at [STEP_DEG]. */
+              const val FULL_SWEEP_FRAMES = 30
+              /** Minimum frames needed to build a usable cubemap. */
+              const val MIN_FRAMES = 6
+
+              /** Captured frame size in portrait. Frames are stored at this size regardless of sensor output. */
+              const val FRAME_W = 480
+              const val FRAME_H = 640
+
+              /**
+               * Field of view of the main camera. Tune per device if the stitched result looks stretched.
+               * Portrait: the short side (width) is the sweep direction, so it gets the smaller angle.
+               */
+              const val H_FOV_DEG = 50.0
+              const val V_FOV_DEG = 68.0
+
+              // ---- Output resolution ----
+              const val PANO_W = 1024
+              const val PANO_H = 512
+              const val FACE_SIZE = 512
+              private const val THUMB_SIZE = 256
+
+              /** Index of the "front" face: the direction the user starts facing (-Z). */
+              private const val FRONT_INDEX = 5
+
+              /** ARGB opaque black. */
+              private const val OPAQUE_BLACK = -16777216
+
+              /** A captured frame and the heading (degrees, 0..360) at which it was taken. */
+              data class Frame(val file: File, val yawDeg: Float)
+
+              /** Single background worker with reduced scheduling priority so the UI stays smooth. */
+              fun newSingleWorker(name: String): ExecutorService =
+                  Executors.newSingleThreadExecutor { runnable ->
+                      Thread({
+                          Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND)
+                          runnable.run()
+                      }, name).apply { isDaemon = true }
+                  }
+
+              /**
+               * Builds a `.panco` file from [frames]. Blocking; call from a worker thread.
+               * [onProgress] reports 0..100.
+               */
+              fun build(
+                  frames: List<Frame>,
+                  outFile: File,
+                  sensorMode: String,
+                  hasGyroscope: Boolean,
+                  onProgress: (Int) -> Unit = {}
+              ): File {
+                  require(frames.size >= MIN_FRAMES) { "Need at least $MIN_FRAMES frames" }
+
+                  val sorted = frames.sortedBy { it.yawDeg }
+                  val pano = buildEquirect(sorted, onProgress)
+                  onProgress(90)
+
+                  val faces = Array(6) { renderFace(pano, it) }
+                  val thumb = Bitmap.createScaledBitmap(faces[FRONT_INDEX], THUMB_SIZE, THUMB_SIZE, true)
+                  try {
+                      PancoContainer.write(outFile, faces, thumb, buildMeta(sorted, sensorMode, hasGyroscope))
+                  } finally {
+                      faces.forEach { it.recycle() }
+                      thumb.recycle()
+                  }
+                  onProgress(100)
+                  return outFile
+              }
+
+              // ------------------------------------------------------------------------
+              // Step 1: frames -> equirectangular panorama
+              // ------------------------------------------------------------------------
+
+              private fun buildEquirect(frames: List<Frame>, onProgress: (Int) -> Unit): IntArray {
+                  val n = PANO_W * PANO_H
+                  val accR = FloatArray(n)
+                  val accG = FloatArray(n)
+                  val accB = FloatArray(n)
+                  val accW = FloatArray(n)
+
+                  // Longitude for each panorama column, and tan(latitude) for each row.
+                  val lon = DoubleArray(PANO_W) { x -> (x + 0.5) / PANO_W * 2.0 * PI - PI }
+                  val tanLat = DoubleArray(PANO_H)
+                  for (y in 0 until PANO_H) {
+                      val lat = (0.5 - (y + 0.5) / PANO_H) * PI
+                      tanLat[y] = tan(lat)
+                  }
+
+                  // Pinhole intrinsics for the frame.
+                  val halfH = Math.toRadians(H_FOV_DEG / 2.0)
+                  val halfV = Math.toRadians(V_FOV_DEG / 2.0)
+                  val fx = (FRAME_W / 2.0) / tan(halfH)
+                  val fy = (FRAME_H / 2.0) / tan(halfV)
+                  val cx = FRAME_W / 2.0
+                  val cy = FRAME_H / 2.0
+                  // Cosine feather: weight is 1 at the frame centre and 0 at the FOV edge.
+                  val featherK = PI / (2.0 * halfH)
+
+                  frames.forEachIndexed { index, frame ->
+                      val pixels = loadFramePixels(frame.file)
+                      val yaw = Math.toRadians(frame.yawDeg.toDouble())
+
+                      for (x in 0 until PANO_W) {
+                          val d = wrapPi(lon[x] - yaw)           // angle from the frame's optical axis
+                          if (abs(d) >= halfH) continue          // column outside this frame
+
+                          val cosD = cos(d)
+                          val col = (cx + fx * tan(d)).toInt().coerceIn(0, FRAME_W - 1)
+                          val w = cos(d * featherK).toFloat()
+
+                          for (y in 0 until PANO_H) {
+                              val srcY = cy - fy * tanLat[y] / cosD
+                              if (srcY < 0.0 || srcY >= FRAME_H) continue
+                              val c = pixels[srcY.toInt() * FRAME_W + col]
+                              val i = y * PANO_W + x
+                              accR[i] += ((c shr 16) and 0xFF) * w
+                              accG[i] += ((c shr 8) and 0xFF) * w
+                              accB[i] += (c and 0xFF) * w
+                              accW[i] += w
+                          }
+                      }
+                      onProgress(index * 85 / frames.size)
+                  }
+
+                  val out = IntArray(n)
+                  for (i in 0 until n) {
+                      val w = accW[i]
+                      out[i] = if (w > 0f) argb(accR[i] / w, accG[i] / w, accB[i] / w) else OPAQUE_BLACK
+                  }
+                  fillUncoveredRows(out, accW)
+                  return out
+              }
+
+              /**
+               * Rows no frame covered (usually the top and bottom of a horizontal sweep) are filled
+               * by extending the nearest covered row in the same column. This avoids black caps.
+               */
+              private fun fillUncoveredRows(px: IntArray, weight: FloatArray) {
+                  for (x in 0 until PANO_W) {
+                      var first = -1
+                      var lastRow = -1
+                      for (y in 0 until PANO_H) {
+                          if (weight[y * PANO_W + x] > 0f) {
+                              if (first == -1) first = y
+                              lastRow = y
+                          }
+                      }
+                      if (first == -1) continue
+
+                      val topColor = px[first * PANO_W + x]
+                      val bottomColor = px[lastRow * PANO_W + x]
+                      for (y in 0 until first) px[y * PANO_W + x] = topColor
+                      for (y in lastRow + 1 until PANO_H) px[y * PANO_W + x] = bottomColor
+
+                      var last = topColor
+                      for (y in first..lastRow) {
+                          val i = y * PANO_W + x
+                          if (weight[i] > 0f) last = px[i] else px[i] = last
+                      }
+                  }
+              }
+
+              // ------------------------------------------------------------------------
+              // Step 2: panorama -> six cube faces
+              // ------------------------------------------------------------------------
+
+              /**
+               * Maps normalised face coordinates (u, v in [-1, 1]) to a world direction for [face].
+               * Faces use OpenGL cube-map target order: +X, -X, +Y, -Y, +Z, -Z.
+               * This matches the GL specification's (s, t) convention, so the viewer samples correctly.
+               */
+              private fun faceDirection(face: Int, u: Double, v: Double, out: DoubleArray) {
+                  when (face) {
+                      0 -> { out[0] = 1.0;   out[1] = -v;   out[2] = -u }   // +X  right
+                      1 -> { out[0] = -1.0;  out[1] = -v;   out[2] = u }    // -X  left
+                      2 -> { out[0] = u;     out[1] = 1.0;  out[2] = v }    // +Y  top
+                      3 -> { out[0] = u;     out[1] = -1.0; out[2] = -v }   // -Y  bottom
+                      4 -> { out[0] = u;     out[1] = -v;   out[2] = 1.0 }  // +Z  back
+                      else -> { out[0] = -u; out[1] = -v;   out[2] = -1.0 } // -Z  front
+                  }
+              }
+
+              private fun renderFace(pano: IntArray, face: Int): Bitmap {
+                  val n = FACE_SIZE
+                  val pixels = IntArray(n * n)
+                  val dir = DoubleArray(3)
+
+                  for (j in 0 until n) {
+                      val v = 2.0 * (j + 0.5) / n - 1.0
+                      for (i in 0 until n) {
+                          val u = 2.0 * (i + 0.5) / n - 1.0
+                          faceDirection(face, u, v, dir)
+
+                          val len = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2])
+                          // Same convention as the panorama: forward at yaw 0 is -Z.
+                          val lon = atan2(dir[0], -dir[2])
+                          val lat = asin((dir[1] / len).coerceIn(-1.0, 1.0))
+
+                          val ex = (lon / (2.0 * PI) + 0.5) * PANO_W - 0.5
+                          val ey = (0.5 - lat / PI) * PANO_H - 0.5
+                          pixels[j * n + i] = sampleBilinear(pano, ex, ey)
+                      }
+                  }
+
+                  val bmp = Bitmap.createBitmap(n, n, Bitmap.Config.ARGB_8888)
+                  bmp.setPixels(pixels, 0, n, 0, 0, n, n)
+                  return bmp
+              }
+
+              /** Bilinear lookup with horizontal wrap-around and vertical clamping. */
+              private fun sampleBilinear(px: IntArray, fx: Double, fy: Double): Int {
+                  val x0f = floor(fx)
+                  val y0f = floor(fy)
+                  val tx = (fx - x0f).toFloat()
+                  val ty = (fy - y0f).toFloat()
+
+                  val x0 = Math.floorMod(x0f.toInt(), PANO_W)
+                  val x1 = Math.floorMod(x0f.toInt() + 1, PANO_W)
+                  val y0 = y0f.toInt().coerceIn(0, PANO_H - 1)
+                  val y1 = (y0f.toInt() + 1).coerceIn(0, PANO_H - 1)
+
+                  val c00 = px[y0 * PANO_W + x0]
+                  val c10 = px[y0 * PANO_W + x1]
+                  val c01 = px[y1 * PANO_W + x0]
+                  val c11 = px[y1 * PANO_W + x1]
+
+                  return argb(
+                      mix(chan(c00, 16), chan(c10, 16), chan(c01, 16), chan(c11, 16), tx, ty),
+                      mix(chan(c00, 8), chan(c10, 8), chan(c01, 8), chan(c11, 8), tx, ty),
+                      mix(chan(c00, 0), chan(c10, 0), chan(c01, 0), chan(c11, 0), tx, ty)
+                  )
+              }
+
+              // ------------------------------------------------------------------------
+              // Helpers
+              // ------------------------------------------------------------------------
+
+              private fun loadFramePixels(file: File): IntArray {
+                  var bmp = BitmapFactory.decodeFile(file.absolutePath, BitmapFactory.Options().apply {
+                      inPreferredConfig = Bitmap.Config.ARGB_8888
+                  }) ?: throw IllegalStateException("Unreadable frame ${file.name}")
+
+                  if (bmp.width != FRAME_W || bmp.height != FRAME_H) {
+                      val scaled = Bitmap.createScaledBitmap(bmp, FRAME_W, FRAME_H, true)
+                      bmp.recycle()
+                      bmp = scaled
+                  }
+                  val px = IntArray(FRAME_W * FRAME_H)
+                  bmp.getPixels(px, 0, FRAME_W, 0, 0, FRAME_W, FRAME_H)
+                  bmp.recycle()
+                  return px
+              }
+
+              private fun buildMeta(frames: List<Frame>, sensorMode: String, hasGyro: Boolean): JSONObject {
+                  val frameArray = JSONArray()
+                  frames.forEachIndexed { i, f ->
+                      frameArray.put(
+                          JSONObject()
+                              .put("index", i)
+                              .put("yawDeg", f.yawDeg.toDouble())
+                              .put("file", f.file.name)
+                      )
+                  }
+                  return JSONObject()
+                      .put("format", "panco")
+                      .put("formatVersion", 2)
+                      .put("faceOrder", JSONArray(PancoContainer.FACE_NAMES.toList()))
+                      .put("faceSize", FACE_SIZE)
+                      .put("panorama", JSONObject().put("width", PANO_W).put("height", PANO_H))
+                      .put("hFovDeg", H_FOV_DEG)
+                      .put("vFovDeg", V_FOV_DEG)
+                      .put("sensorMode", sensorMode)
+                      .put("hasGyroscope", hasGyro)
+                      .put("createdAtMs", System.currentTimeMillis())
+                      .put("frames", frameArray)
+              }
+
+              private fun wrapPi(a: Double): Double {
+                  var x = (a + PI) % (2.0 * PI)
+                  if (x < 0) x += 2.0 * PI
+                  return x - PI
+              }
+
+              private fun argb(r: Float, g: Float, b: Float): Int =
+                  OPAQUE_BLACK or
+                      (r.toInt().coerceIn(0, 255) shl 16) or
+                      (g.toInt().coerceIn(0, 255) shl 8) or
+                      b.toInt().coerceIn(0, 255)
+
+              private fun chan(c: Int, shift: Int): Float = ((c shr shift) and 0xFF).toFloat()
+
+              private fun mix(a: Float, b: Float, c: Float, d: Float, tx: Float, ty: Float): Float {
+                  val top = a + (b - a) * tx
+                  val bottom = c + (d - c) * tx
+                  return top + (bottom - top) * ty
+              }
+          }
+          EOF
+
+          cat > $SRC/PancoContainer.kt <<'EOF'
+          package com.zeeshan.cameraapp
+
+          import android.content.Context
+          import android.graphics.Bitmap
+          import android.graphics.BitmapFactory
+          import org.json.JSONObject
+          import java.io.File
+          import java.io.FileOutputStream
+          import java.util.zip.ZipEntry
+          import java.util.zip.ZipFile
+          import java.util.zip.ZipOutputStream
+
+          /**
+           * `.panco` container: a ZIP package with fixed entry names.
+           *
+           *   right.png, left.png, top.png, bottom.png, back.png, front.png   six cube faces (PNG)
+           *   thumb.jpg                                                       gallery preview
+           *   meta.json                                                       pose and projection metadata
+           *
+           * Face order matches the OpenGL cube-map target order so the viewer can upload faces directly.
+           */
+          object PancoContainer {
+
+              const val EXT = "panco"
+
+              /** Entry names in OpenGL cube-map target order: +X, -X, +Y, -Y, +Z, -Z. */
+              val FACE_NAMES: Array<String> = arrayOf(
+                  "right.png", "left.png", "top.png", "bottom.png", "back.png", "front.png"
+              )
+
+              private const val THUMB_ENTRY = "thumb.jpg"
+              private const val META_ENTRY = "meta.json"
+
+              /** App-private directory for finished photos. Needs no storage permission. */
+              fun dir(context: Context): File = File(context.filesDir, "panco").apply { mkdirs() }
+
+              fun listNewestFirst(context: Context): List<File> =
+                  dir(context)
+                      .listFiles { f -> f.isFile && f.extension == EXT }
+                      ?.sortedByDescending { it.lastModified() }
+                      ?: emptyList()
+
+              /** Writes the container atomically: data goes to a temp file, then is renamed into place. */
+              fun write(out: File, faces: Array<Bitmap>, thumb: Bitmap, meta: JSONObject) {
+                  require(faces.size == FACE_NAMES.size) { "Expected ${FACE_NAMES.size} faces" }
+                  val tmp = File(out.parentFile, out.name + ".tmp")
+
+                  ZipOutputStream(FileOutputStream(tmp).buffered()).use { zip ->
+                      faces.forEachIndexed { i, bmp ->
+                          zip.putNextEntry(ZipEntry(FACE_NAMES[i]))
+                          bmp.compress(Bitmap.CompressFormat.PNG, 100, zip)
+                          zip.closeEntry()
+                      }
+                      zip.putNextEntry(ZipEntry(THUMB_ENTRY))
+                      thumb.compress(Bitmap.CompressFormat.JPEG, 85, zip)
+                      zip.closeEntry()
+
+                      zip.putNextEntry(ZipEntry(META_ENTRY))
+                      zip.write(meta.toString(2).toByteArray(Charsets.UTF_8))
+                      zip.closeEntry()
+                  }
+                  check(tmp.renameTo(out)) { "Could not finalise ${out.name}" }
+              }
+
+              /** Reads only the small thumbnail. [sampleSize] downsamples further to save memory. */
+              fun readThumb(file: File, sampleSize: Int): Bitmap? {
+                  ZipFile(file).use { zf ->
+                      val entry = zf.getEntry(THUMB_ENTRY) ?: return null
+                      val opts = BitmapFactory.Options().apply {
+                          inSampleSize = sampleSize
+                          inPreferredConfig = Bitmap.Config.RGB_565
+                      }
+                      return zf.getInputStream(entry).use { BitmapFactory.decodeStream(it, null, opts) }
+                  }
+              }
+
+              /** Reads all six faces. Use RGB_565 for the viewer to halve texture memory. */
+              fun readFaces(file: File, config: Bitmap.Config): Array<Bitmap> {
+                  ZipFile(file).use { zf ->
+                      return Array(FACE_NAMES.size) { i ->
+                          val name = FACE_NAMES[i]
+                          val entry = zf.getEntry(name) ?: throw IllegalStateException("Missing $name")
+                          val opts = BitmapFactory.Options().apply { inPreferredConfig = config }
+                          zf.getInputStream(entry).use { BitmapFactory.decodeStream(it, null, opts) }
+                              ?: throw IllegalStateException("Corrupt $name")
+                      }
+                  }
+              }
+          }
+          EOF
+
+          cat > $SRC/PoseTracker.kt <<'EOF'
+          package com.zeeshan.cameraapp
+
+          import android.content.Context
+          import android.content.pm.PackageManager
+          import android.hardware.Sensor
+          import android.hardware.SensorEvent
+          import android.hardware.SensorEventListener
+          import android.hardware.SensorManager
+          import kotlin.math.atan2
+
+          /**
+           * Tracks heading (yaw) and tilt.
+           *
+           * - Yaw comes from the fused ROTATION_VECTOR sensor. Many budget devices without a gyroscope
+           *   (including some Galaxy A12 variants) still provide this sensor, fused from accelerometer
+           *   and magnetometer. It is less stable but usable. When it is absent, [hasHeading] is false
+           *   and the app switches to manual capture.
+           * - Tilt comes from the raw accelerometer and drives the "hold upright" guidance.
+           */
+          class PoseTracker(context: Context, private val listener: Listener) : SensorEventListener {
+
+              interface Listener {
+                  /** Heading relative to the sweep start, in degrees [0, 360). */
+                  fun onYaw(yawDeg: Float)
+
+                  /** Tilt from vertical in degrees. 0 means the phone is upright in portrait. */
+                  fun onTilt(tiltDeg: Float)
+              }
+
+              private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+              private val rotationSensor: android.hardware.Sensor? =
+                  sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+              private val accelSensor: android.hardware.Sensor? =
+                  sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+              private val gyroPresent =
+                  context.packageManager.hasSystemFeature(PackageManager.FEATURE_SENSOR_GYROSCOPE)
+
+              /** True when a heading sensor exists, so guided capture is possible. */
+              val hasHeading: Boolean get() = rotationSensor != null
+
+              /** True when a physical gyroscope is present. Recorded in metadata for diagnostics. */
+              val hasGyroscope: Boolean get() = gyroPresent
+
+              private val rotationMatrix = FloatArray(9)
+              private val remapped = FloatArray(9)
+              private val orientation = FloatArray(3)
+              private var startAzimuth: Float? = null
+
+              fun start() {
+                  rotationSensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+                  accelSensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
+              }
+
+              fun stop() {
+                  sensorManager.unregisterListener(this)
+                  startAzimuth = null
+              }
+
+              /** Sets the current heading as 0°. Call when a new sweep begins. */
+              fun resetHeading() {
+                  startAzimuth = null
+              }
+
+              override fun onSensorChanged(event: SensorEvent) {
+                  when (event.sensor.type) {
+                      Sensor.TYPE_ROTATION_VECTOR -> {
+                          SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+                          // Portrait phone: the camera points along the device's Y axis, so remap to get
+                          // a heading that matches where the back camera faces.
+                          SensorManager.remapCoordinateSystem(
+                              rotationMatrix, SensorManager.AXIS_X, SensorManager.AXIS_Z, remapped
+                          )
+                          SensorManager.getOrientation(remapped, orientation)
+                          val azimuth = orientation[0]
+                          val start = startAzimuth ?: azimuth.also { startAzimuth = it }
+
+                          var relDeg = Math.toDegrees((azimuth - start).toDouble()).toFloat()
+                          relDeg = ((relDeg % 360f) + 360f) % 360f
+                          listener.onYaw(relDeg)
+                      }
+                      Sensor.TYPE_ACCELEROMETER -> {
+                          val ax = event.values[0].toDouble()
+                          val ay = event.values[1].toDouble()
+                          listener.onTilt(Math.toDegrees(atan2(ax, ay)).toFloat())
+                      }
+                  }
+              }
+
+              override fun onAccuracyChanged(sensor: android.hardware.Sensor?, accuracy: Int) = Unit
+          }
+          EOF
+
+          cat > $SRC/GalleryAdapter.kt <<'EOF'
+          package com.zeeshan.cameraapp
+
+          import android.view.GestureDetector
+          import android.view.LayoutInflater
+          import android.view.MotionEvent
+          import android.view.View
+          import android.view.ViewGroup
+          import android.widget.ImageView
+          import androidx.recyclerview.widget.RecyclerView
+          import java.io.File
+
+          /**
+           * Horizontal strip of `.panco` thumbnails. Double-tapping a thumbnail opens it in the 3D viewer.
+           */
+          class GalleryAdapter(
+              private val items: MutableList<File>,
+              private val loadThumb: (File, ImageView) -> Unit,
+              private val onOpen: (File) -> Unit
+          ) : RecyclerView.Adapter<GalleryAdapter.Holder>() {
+
+              inner class Holder(view: View) : RecyclerView.ViewHolder(view) {
+                  val image: ImageView = view.findViewById(R.id.thumbImage)
+                  var file: File? = null
+
+                  private val detector = GestureDetector(
+                      view.context,
+                      object : GestureDetector.SimpleOnGestureListener() {
+                          override fun onDown(e: MotionEvent): Boolean = true
+
+                          override fun onDoubleTap(e: MotionEvent): Boolean {
+                              file?.let(onOpen)
+                              return true
+                          }
+                      }
+                  )
+
+                  init {
+                      image.setOnTouchListener { _, ev ->
+                          detector.onTouchEvent(ev)
+                          true
+                      }
+                  }
+              }
+
+              override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder =
+                  Holder(LayoutInflater.from(parent.context).inflate(R.layout.item_thumb, parent, false))
+
+              override fun onBindViewHolder(holder: Holder, position: Int) {
+                  val file = items[position]
+                  holder.file = file
+                  loadThumb(file, holder.image)
+              }
+
+              override fun getItemCount(): Int = items.size
+
+              fun setItems(newItems: List<File>) {
+                  items.clear()
+                  items.addAll(newItems)
+                  notifyDataSetChanged()
+              }
+          }
+          EOF
+
+          cat > $SRC/MainActivity.kt <<'EOF'
+          package com.zeeshan.cameraapp
 
           import android.Manifest
-          import android.content.ContentUris
           import android.content.Intent
           import android.content.pm.PackageManager
-          import android.graphics.Color
-          import android.net.Uri
-          import android.os.Build
+          import android.graphics.Bitmap
           import android.os.Bundle
-          import android.os.Environment
-          import android.provider.MediaStore
-          import android.provider.Settings
-          import android.view.Gravity
-          import android.view.ViewGroup
-          import android.widget.*
-          import androidx.appcompat.app.AlertDialog
+          import android.util.LruCache
+          import android.util.Size
+          import android.view.View
+          import android.widget.Button
+          import android.widget.ImageView
+          import android.widget.ProgressBar
+          import android.widget.TextView
+          import android.widget.Toast
+          import androidx.activity.result.contract.ActivityResultContracts
           import androidx.appcompat.app.AppCompatActivity
-          import androidx.core.app.ActivityCompat
+          import androidx.camera.core.CameraSelector
+          import androidx.camera.core.ImageCapture
+          import androidx.camera.core.ImageCaptureException
+          import androidx.camera.core.Preview
+          import androidx.camera.core.ResolutionSelector
+          import androidx.camera.core.ResolutionStrategy
+          import androidx.camera.lifecycle.ProcessCameraProvider
+          import androidx.camera.view.PreviewView
           import androidx.core.content.ContextCompat
-          import androidx.lifecycle.lifecycleScope
           import androidx.recyclerview.widget.LinearLayoutManager
           import androidx.recyclerview.widget.RecyclerView
-          import com.bumptech.glide.Glide
-          import kotlinx.coroutines.Dispatchers
-          import kotlinx.coroutines.launch
-          import kotlinx.coroutines.withContext
           import java.io.File
-          import java.util.concurrent.TimeUnit
+          import java.util.concurrent.ExecutorService
+          import kotlin.math.abs
 
-          data class VideoModel(val id: Long, val title: String, val path: String, val duration: Long, val size: Long, val uri: Uri, val folderName: String)
-
+          /**
+           * Capture screen.
+           *
+           * Guided mode (rotation sensor present): tap Start, then rotate in place. A frame is captured
+           * every 12° of measured heading. After 30 frames the sweep finishes and the cubemap is built.
+           *
+           * Manual mode (no rotation sensor): tap Shoot for each step, turning roughly 12° between shots.
+           * Tilt guidance still works through the accelerometer.
+           *
+           * All sweep state is touched only on the main thread. Heavy work runs on [worker].
+           */
           class MainActivity : AppCompatActivity() {
-              private lateinit var recyclerView: RecyclerView
-              private lateinit var tabFolders: TextView
-              private lateinit var tabVideos: TextView
-              
-              private var videoList = ArrayList<VideoModel>()
-              private var folderList = ArrayList<Pair<String, ArrayList<VideoModel>>>()
-              private var isFolderTab = true
+
+              companion object {
+                  private const val THUMB_CACHE_BYTES = 4 * 1024 * 1024
+                  private const val MAX_TILT_DEG = 20f
+              }
+
+              private lateinit var viewFinder: PreviewView
+              private lateinit var statusText: TextView
+              private lateinit var galleryList: RecyclerView
+              private lateinit var btnShutter: Button
+              private lateinit var btnFinish: Button
+              private lateinit var busyIndicator: ProgressBar
+
+              private lateinit var poseTracker: PoseTracker
+              private lateinit var worker: ExecutorService
+              private lateinit var galleryAdapter: GalleryAdapter
+              private var imageCapture: ImageCapture? = null
+
+              /** Small LRU cache of decoded thumbnails. Bounded so memory stays low on 2 GB devices. */
+              private val thumbCache = object : LruCache<String, Bitmap>(THUMB_CACHE_BYTES) {
+                  override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
+              }
+
+              // ---- Sweep state (main thread only) ----
+              private val frames = mutableListOf<CubemapProcessor.Frame>()
+              private var sessionDir: File? = null
+              /** Incremented whenever a sweep is cancelled or finished, so late camera callbacks are discarded. */
+              private var generation = 0
+              private var sweeping = false
+              private var captureInFlight = false
+              private var processing = false
+              private var guided = false
+              private var currentYaw = 0f
+              private var currentTilt = 0f
+
+              private val cameraPermission =
+                  registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+                      if (granted) startCamera() else statusText.text = getString(R.string.camera_denied)
+                  }
 
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
                   setContentView(R.layout.activity_main)
 
-                  tabFolders = findViewById(R.id.tab_folders)
-                  tabVideos = findViewById(R.id.tab_videos)
-                  recyclerView = findViewById(R.id.recycler_view)
-                  recyclerView.layoutManager = LinearLayoutManager(this)
+                  viewFinder = findViewById(R.id.viewFinder)
+                  statusText = findViewById(R.id.statusText)
+                  galleryList = findViewById(R.id.galleryList)
+                  btnShutter = findViewById(R.id.btnShutter)
+                  btnFinish = findViewById(R.id.btnFinish)
+                  busyIndicator = findViewById(R.id.busyIndicator)
 
-                  tabFolders.setOnClickListener { switchTab(true) }
-                  tabVideos.setOnClickListener { switchTab(false) }
+                  worker = CubemapProcessor.newSingleWorker("panco-main")
+
+                  poseTracker = PoseTracker(this, object : PoseTracker.Listener {
+                      override fun onYaw(yawDeg: Float) {
+                          currentYaw = yawDeg
+                          onYawChanged()
+                      }
+
+                      override fun onTilt(tiltDeg: Float) {
+                          currentTilt = tiltDeg
+                          updateStatus()
+                      }
+                  })
+                  guided = poseTracker.hasHeading
+
+                  galleryAdapter = GalleryAdapter(mutableListOf(), ::loadThumb) { openViewer(it) }
+                  galleryList.layoutManager = LinearLayoutManager(this, RecyclerView.HORIZONTAL, false)
+                  galleryList.adapter = galleryAdapter
+
+                  btnShutter.setOnClickListener { onShutterPressed() }
+                  btnFinish.setOnClickListener { finishSweep() }
+
+                  updateButtons()
+                  updateStatus()
+
+                  if (hasCameraPermission()) startCamera()
+                  else cameraPermission.launch(Manifest.permission.CAMERA)
               }
 
-              override fun onResume() { super.onResume(); checkPermissions() }
-
-              private fun switchTab(isFolder: Boolean) {
-                  isFolderTab = isFolder
-                  tabFolders.setTextColor(if (isFolder) Color.WHITE else Color.parseColor("#D7CCC8"))
-                  tabVideos.setTextColor(if (!isFolder) Color.WHITE else Color.parseColor("#D7CCC8"))
-                  setupAdapter()
+              override fun onResume() {
+                  super.onResume()
+                  poseTracker.start()
+                  loadGallery()
               }
 
-              private fun checkPermissions() {
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                      if (!Environment.isExternalStorageManager()) {
-                          AlertDialog.Builder(this).setTitle("Storage Access")
-                              .setMessage("Require full storage access to play offline videos.")
-                              .setPositiveButton("Grant") { _, _ -> startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName"))) }
-                              .show()
-                      } else fetchVideosAsync()
-                  } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                      if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VIDEO) != PackageManager.PERMISSION_GRANTED) {
-                          ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.READ_MEDIA_VIDEO), 101)
-                      } else fetchVideosAsync()
-                  } else {
-                      if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                          ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), 101)
-                      } else fetchVideosAsync()
+              override fun onPause() {
+                  poseTracker.stop()
+                  if (sweeping) cancelSweep()
+                  super.onPause()
+              }
+
+              override fun onDestroy() {
+                  worker.shutdownNow()
+                  super.onDestroy()
+              }
+
+              // ------------------------------------------------------------------
+              // Camera
+              // ------------------------------------------------------------------
+
+              private fun hasCameraPermission(): Boolean =
+                  ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
+                      PackageManager.PERMISSION_GRANTED
+
+              private fun startCamera() {
+                  val future = ProcessCameraProvider.getInstance(this)
+                  future.addListener({
+                      try {
+                          val provider = future.get()
+                          val preview = Preview.Builder().build().also {
+                              it.setSurfaceProvider(viewFinder.surfaceProvider)
+                          }
+                          // Request small frames so each capture is cheap to store and decode.
+                          val capture = ImageCapture.Builder()
+                              .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                              .setJpegQuality(85)
+                              .setResolutionSelector(
+                                  ResolutionSelector.Builder()
+                                      .setResolutionStrategy(
+                                          ResolutionStrategy(
+                                              Size(CubemapProcessor.FRAME_W, CubemapProcessor.FRAME_H),
+                                              ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
+                                          )
+                                      )
+                                      .build()
+                              )
+                              .build()
+                          imageCapture = capture
+
+                          provider.unbindAll()
+                          provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture)
+                      } catch (e: Exception) {
+                          statusText.text = getString(R.string.error_camera)
+                      }
+                  }, ContextCompat.getMainExecutor(this))
+              }
+
+              private fun captureFrame(yawDeg: Float) {
+                  val capture = imageCapture ?: return
+                  captureInFlight = true
+
+                  val dir = sessionDir ?: File(cacheDir, "sweep_${System.currentTimeMillis()}").also {
+                      it.mkdirs()
+                      sessionDir = it
                   }
-              }
+                  val file = File(dir, "frame_%03d.jpg".format(frames.size))
+                  val gen = generation
 
-              private fun fetchVideosAsync() {
-                  lifecycleScope.launch {
-                      withContext(Dispatchers.IO) {
-                          videoList.clear()
-                          val fMap = HashMap<String, ArrayList<VideoModel>>()
-                          val proj = arrayOf(MediaStore.Video.Media._ID, MediaStore.Video.Media.TITLE, MediaStore.Video.Media.DATA, MediaStore.Video.Media.DURATION, MediaStore.Video.Media.SIZE)
-                          contentResolver.query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, proj, null, null, "${MediaStore.Video.Media.DATE_ADDED} DESC")?.use {
-                              while (it.moveToNext()) {
-                                  val id = it.getLong(0)
-                                  val path = it.getString(2) ?: ""
-                                  val model = VideoModel(id, it.getString(1) ?: "Video", path, it.getLong(3), it.getLong(4),
-                                      ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id), File(path).parentFile?.name ?: "Internal Storage")
-                                  videoList.add(model)
-                                  fMap.getOrPut(model.folderName) { ArrayList() }.add(model)
+                  capture.takePicture(
+                      ImageCapture.OutputFileOptions.Builder(file).build(),
+                      ContextCompat.getMainExecutor(this),
+                      object : ImageCapture.OnImageSavedCallback {
+                          override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                              captureInFlight = false
+                              if (gen != generation) {
+                                  file.delete()
+                                  return
+                              }
+                              frames += CubemapProcessor.Frame(file, yawDeg)
+                              updateButtons()
+                              updateStatus()
+                              if (sweeping && frames.size >= CubemapProcessor.FULL_SWEEP_FRAMES) {
+                                  finishSweep()
                               }
                           }
-                          folderList.clear()
-                          folderList.addAll(fMap.toList())
-                      }
-                      setupAdapter()
-                  }
-              }
 
-              private fun setupAdapter() {
-                  recyclerView.adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-                      override fun getItemViewType(position: Int) = if (isFolderTab) 0 else 1
-                      override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-                          val view = LinearLayout(this@MainActivity).apply {
-                              orientation = LinearLayout.HORIZONTAL; setPadding(30, 30, 30, 30)
-                              layoutParams = RecyclerView.LayoutParams(-1, -2).apply { setMargins(16, 16, 16, 16) }
-                              background = ContextCompat.getDrawable(this@MainActivity, android.R.drawable.dialog_holo_light_frame)
-                          }
-                          val tvMain = TextView(this@MainActivity).apply { textSize = 16f; setTextColor(Color.BLACK); layoutParams = LinearLayout.LayoutParams(0, -2, 1f) }
-                          view.addView(tvMain)
-                          return object : RecyclerView.ViewHolder(view) {}
-                      }
-                      override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-                          val container = holder.itemView as LinearLayout
-                          val tvMain = container.getChildAt(0) as TextView
-                          if (isFolderTab) {
-                              val folder = folderList[position]
-                              tvMain.text = "📁 ${folder.first}\n${folder.second.size} videos"
-                              container.setOnClickListener { showFolderDialog(folder.first, folder.second) }
-                          } else {
-                              val video = videoList[position]
-                              tvMain.text = "🎬 ${video.title}\n${String.format("%.1f MB", video.size.toDouble() / (1024 * 1024))}"
-                              container.setOnClickListener { launchPlayer(video) }
+                          override fun onError(exc: ImageCaptureException) {
+                              captureInFlight = false
+                              Toast.makeText(this@MainActivity, R.string.error_capture, Toast.LENGTH_SHORT).show()
                           }
                       }
-                      override fun getItemCount() = if (isFolderTab) folderList.size else videoList.size
+                  )
+              }
+
+              // ------------------------------------------------------------------
+              // Sweep control
+              // ------------------------------------------------------------------
+
+              private fun onShutterPressed() {
+                  if (processing || captureInFlight) return
+                  when {
+                      !guided -> captureFrame(frames.size * CubemapProcessor.STEP_DEG) // manual: assumed heading
+                      sweeping -> cancelSweep()
+                      else -> beginSweep()
                   }
               }
 
-              private fun showFolderDialog(name: String, list: ArrayList<VideoModel>) {
-                  val listView = ListView(this).apply {
-                      adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_list_item_1, list.map { it.title })
-                      setOnItemClickListener { _, _, i, _ -> launchPlayer(list[i]) }
-                  }
-                  AlertDialog.Builder(this).setTitle(name).setView(listView).setNegativeButton("Close", null).show()
+              private fun onYawChanged() {
+                  updateStatus()
+                  if (!sweeping || processing || captureInFlight) return
+                  if (abs(currentTilt) > MAX_TILT_DEG) return // wait until the phone is upright
+
+                  val target = frames.size * CubemapProcessor.STEP_DEG
+                  if (currentYaw >= target) captureFrame(currentYaw)
               }
 
-              private fun launchPlayer(v: VideoModel) {
-                  startActivity(Intent(this, PlayerActivity::class.java).apply {
-                      putExtra("video_uri", v.uri.toString())
-                      putExtra("video_title", v.title)
-                  })
+              private fun beginSweep() {
+                  poseTracker.resetHeading()
+                  frames.clear()
+                  sessionDir = null
+                  sweeping = true
+                  updateButtons()
+                  updateStatus()
+              }
+
+              private fun cancelSweep() {
+                  generation++
+                  sweeping = false
+                  frames.clear()
+                  sessionDir?.deleteRecursively()
+                  sessionDir = null
+                  updateButtons()
+                  updateStatus()
+              }
+
+              private fun finishSweep() {
+                  if (processing) return
+                  if (frames.size < CubemapProcessor.MIN_FRAMES) {
+                      Toast.makeText(this, R.string.error_not_enough_frames, Toast.LENGTH_SHORT).show()
+                      return
+                  }
+
+                  val snapshot = frames.toList()
+                  val session = sessionDir
+                  val sensorMode = if (guided) "rotation_vector" else "manual_assumed_yaw"
+                  val hasGyro = poseTracker.hasGyroscope
+                  val out = File(PancoContainer.dir(this), "panco_${System.currentTimeMillis()}.${PancoContainer.EXT}")
+
+                  generation++
+                  sweeping = false
+                  frames.clear()
+                  sessionDir = null
+                  processing = true
+                  updateButtons()
+
+                  worker.execute {
+                      try {
+                          CubemapProcessor.build(snapshot, out, sensorMode, hasGyro) { pct ->
+                              runOnUiThread { statusText.text = getString(R.string.building, pct) }
+                          }
+                          runOnUiThread {
+                              processing = false
+                              updateButtons()
+                              updateStatus()
+                              loadGallery()
+                              Toast.makeText(this, R.string.saved, Toast.LENGTH_SHORT).show()
+                          }
+                      } catch (e: Exception) {
+                          out.delete()
+                          runOnUiThread {
+                              processing = false
+                              updateButtons()
+                              statusText.text = getString(R.string.error_build)
+                          }
+                      } finally {
+                          session?.deleteRecursively()
+                      }
+                  }
+              }
+
+              // ------------------------------------------------------------------
+              // UI helpers
+              // ------------------------------------------------------------------
+
+              private fun updateButtons() {
+                  btnShutter.text = when {
+                      !guided -> getString(R.string.shoot)
+                      sweeping -> getString(R.string.cancel)
+                      else -> getString(R.string.start_sweep)
+                  }
+                  btnShutter.isEnabled = !processing
+                  btnFinish.isEnabled = !processing && frames.size >= CubemapProcessor.MIN_FRAMES
+                  busyIndicator.visibility = if (processing) View.VISIBLE else View.GONE
+              }
+
+              private fun updateStatus() {
+                  if (processing) return
+                  val text = StringBuilder()
+                  if (abs(currentTilt) > MAX_TILT_DEG) text.append(getString(R.string.tilt_warning)).append('\n')
+                  if (!guided) text.append(getString(R.string.manual_mode)).append('\n')
+                  text.append(
+                      if (guided) getString(R.string.progress_frames, frames.size, currentYaw.toInt())
+                      else getString(R.string.progress_manual, frames.size)
+                  )
+                  statusText.text = text.toString()
+              }
+
+              private fun loadGallery() {
+                  galleryAdapter.setItems(PancoContainer.listNewestFirst(this))
+              }
+
+              /** Shows a cached thumbnail, or decodes one on the worker thread. */
+              private fun loadThumb(file: File, view: ImageView) {
+                  view.tag = file
+                  val cached = thumbCache.get(file.absolutePath)
+                  if (cached != null) {
+                      view.setImageBitmap(cached)
+                      return
+                  }
+                  view.setImageResource(android.R.drawable.ic_menu_gallery)
+                  worker.execute {
+                      val bmp = runCatching { PancoContainer.readThumb(file, 2) }.getOrNull() ?: return@execute
+                      thumbCache.put(file.absolutePath, bmp)
+                      runOnUiThread {
+                          if (view.tag == file) view.setImageBitmap(bmp)
+                      }
+                  }
+              }
+
+              private fun openViewer(file: File) {
+                  startActivity(
+                      Intent(this, ViewerActivity::class.java)
+                          .putExtra(ViewerActivity.EXTRA_PATH, file.absolutePath)
+                  )
               }
           }
           EOF
 
-          cat > app/src/main/java/com/zeeshan/videopyle/PlayerActivity.kt <<'EOF'
-          package com.zeeshan.videopyle
+          cat > $SRC/ViewerActivity.kt <<'EOF'
+          package com.zeeshan.cameraapp
 
-          import android.content.Context
-          import android.content.pm.ActivityInfo
-          import android.media.AudioManager
-          import android.media.audiofx.LoudnessEnhancer
-          import android.net.Uri
+          import android.graphics.Bitmap
+          import android.opengl.GLSurfaceView
           import android.os.Bundle
-          import android.os.Handler
-          import android.os.Looper
           import android.view.GestureDetector
           import android.view.MotionEvent
           import android.view.ScaleGestureDetector
           import android.view.View
-          import android.view.Window
-          import android.view.WindowManager
-          import android.widget.ImageButton
-          import android.widget.LinearLayout
-          import android.widget.TextView
+          import android.widget.ProgressBar
           import android.widget.Toast
-          import androidx.appcompat.app.AlertDialog
           import androidx.appcompat.app.AppCompatActivity
-          import androidx.core.view.WindowCompat
-          import androidx.core.view.WindowInsetsCompat
-          import androidx.core.view.WindowInsetsControllerCompat
-          import androidx.media3.common.C
-          import androidx.media3.common.MediaItem
-          import androidx.media3.common.PlaybackParameters
-          import androidx.media3.common.TrackSelectionOverride
-          import androidx.media3.exoplayer.ExoPlayer
-          import androidx.media3.ui.AspectRatioFrameLayout
-          import androidx.media3.ui.PlayerView
-          import kotlin.math.abs
+          import java.io.File
+          import java.util.concurrent.ExecutorService
 
-          class PlayerActivity : AppCompatActivity() {
-              private var player: ExoPlayer? = null
-              private lateinit var playerView: PlayerView
-              private lateinit var hudLayout: LinearLayout
-              private lateinit var hudText: TextView
-              private lateinit var btnUnlock: ImageButton
-              
-              private var loudnessEnhancer: LoudnessEnhancer? = null
-              private var currentBoostPercent = 100
-              private var currentSpeed = 1.0f
-              private var isLocked = false
-              private var isPillVisible = true
-              
-              private var scaleFactor = 1.0f
+          /**
+           * Immersive viewer for a `.panco` file.
+           *
+           * Controls (touch only, so it works on every device, including those without a gyroscope):
+           *  - Drag: orbit the camera inside the cube.
+           *  - Pinch: zoom (changes the field of view).
+           *  - Double-tap: reset to the front view.
+           */
+          class ViewerActivity : AppCompatActivity() {
+
+              companion object {
+                  const val EXTRA_PATH = "panco_path"
+              }
+
+              private lateinit var glView: GLSurfaceView
+              private lateinit var renderer: CubemapRenderer
+              private lateinit var loading: ProgressBar
+              private lateinit var worker: ExecutorService
               private lateinit var scaleDetector: ScaleGestureDetector
               private lateinit var gestureDetector: GestureDetector
 
-              private var videoUriStr: String? = null
-              private var currentAspectMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-              private val hideHudHandler = Handler(Looper.getMainLooper())
-              private val hideHudRunnable = Runnable { hudLayout.visibility = View.GONE }
-
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
-                  requestWindowFeature(Window.FEATURE_NO_TITLE)
-                  window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
-                  window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                  WindowCompat.setDecorFitsSystemWindows(window, false)
-                  WindowInsetsControllerCompat(window, window.decorView).let {
-                      it.hide(WindowInsetsCompat.Type.systemBars())
-                      it.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                  setContentView(R.layout.activity_viewer)
+
+                  val path = intent.getStringExtra(EXTRA_PATH) ?: run {
+                      finish()
+                      return
                   }
 
-                  setContentView(R.layout.activity_player)
-                  videoUriStr = intent.getStringExtra("video_uri")
-                  
-                  playerView = findViewById(R.id.player_view)
-                  hudLayout = findViewById(R.id.hud_layout)
-                  hudText = findViewById(R.id.hud_text)
-                  btnUnlock = findViewById(R.id.btn_unlock)
+                  glView = findViewById(R.id.glView)
+                  loading = findViewById(R.id.loading)
+                  worker = CubemapProcessor.newSingleWorker("panco-viewer")
 
-                  setupControls()
-                  setupGestures()
-                  initPlayer()
-              }
+                  renderer = CubemapRenderer()
+                  glView.setEGLContextClientVersion(2)
+                  glView.setRenderer(renderer)
+                  // Redraw only when the view changes, to save battery and CPU.
+                  glView.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
 
-              private fun setupControls() {
-                  findViewById<TextView>(R.id.tv_title)?.text = intent.getStringExtra("video_title") ?: "Video"
-                  findViewById<ImageButton>(R.id.btn_back)?.setOnClickListener { finish() }
-                  findViewById<TextView>(R.id.btn_top_speed)?.setOnClickListener {
-                      val speeds = arrayOf(0.5f, 1.0f, 1.5f, 2.0f)
-                      currentSpeed = speeds[(speeds.indexOf(currentSpeed) + 1) % speeds.size]
-                      player?.playbackParameters = PlaybackParameters(currentSpeed)
-                      (it as TextView).text = "${currentSpeed}x"
-                      showHud("Speed: ${currentSpeed}x")
-                  }
-                  
-                  findViewById<TextView>(R.id.btn_aspect_ratio)?.setOnClickListener {
-                      currentAspectMode = if (currentAspectMode == AspectRatioFrameLayout.RESIZE_MODE_FIT) AspectRatioFrameLayout.RESIZE_MODE_ZOOM else AspectRatioFrameLayout.RESIZE_MODE_FIT
-                      playerView.resizeMode = currentAspectMode
-                      showHud(if (currentAspectMode == AspectRatioFrameLayout.RESIZE_MODE_FIT) "FIT" else "CROP")
-                  }
-
-                  val pill = findViewById<LinearLayout>(R.id.floating_pill)
-                  findViewById<TextView>(R.id.pill_collapse)?.setOnClickListener {
-                      isPillVisible = !isPillVisible
-                      pill.visibility = if (isPillVisible) View.VISIBLE else View.GONE
-                  }
-                  findViewById<TextView>(R.id.pill_rotate)?.setOnClickListener {
-                      requestedOrientation = if (requestedOrientation == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE) ActivityInfo.SCREEN_ORIENTATION_PORTRAIT else ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-                  }
-                  findViewById<TextView>(R.id.pill_boost)?.setOnClickListener {
-                      currentBoostPercent = if (currentBoostPercent == 100) 200 else 100
-                      applyAudioBoost(currentBoostPercent)
-                      showHud("Audio Boost: $currentBoostPercent%")
-                  }
-
-                  val rootControl = findViewById<View>(R.id.control_root)
-                  findViewById<ImageButton>(R.id.btn_lock)?.setOnClickListener {
-                      isLocked = true; playerView.useController = false; rootControl.visibility = View.GONE; btnUnlock.visibility = View.VISIBLE
-                      showHud("Locked 🔒")
-                  }
-                  btnUnlock.setOnClickListener {
-                      isLocked = false; playerView.useController = true; btnUnlock.visibility = View.GONE
-                      showHud("Unlocked 🔓")
-                  }
-              }
-
-              private fun setupGestures() {
-                  scaleDetector = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
-                      override fun onScale(d: ScaleGestureDetector): Boolean {
-                          if (isLocked) return false
-                          scaleFactor = (scaleFactor * d.scaleFactor).coerceIn(1.0f, 3.0f)
-                          playerView.videoSurfaceView?.apply { scaleX = scaleFactor; scaleY = scaleFactor }
-                          if(scaleFactor > 1.0f) showHud("Zoom: ${(scaleFactor*100).toInt()}%")
-                          return true
-                      }
-                  })
-
-                  gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-                      override fun onScroll(e1: MotionEvent?, e2: MotionEvent, dX: Float, dY: Float): Boolean {
-                          if (e1 == null || isLocked) return false
-                          if (abs(dX) > abs(dY)) { // Seek (Math Type Mismatch Fixed Here)
-                              player?.let { p ->
-                                  val offset = (dX * 150f).toLong()
-                                  val newPos = (p.currentPosition - offset).coerceIn(0L, p.duration)
-                                  p.seekTo(newPos)
-                                  showHud(String.format("%02d:%02d", (newPos/1000)/60, (newPos/1000)%60))
-                              }
-                          } else { // Volume/Brightness
-                              if (e1.x < resources.displayMetrics.widthPixels / 2) {
-                                  val lp = window.attributes
-                                  lp.screenBrightness = (lp.screenBrightness + dY / resources.displayMetrics.heightPixels).coerceIn(0.01f, 1.0f)
-                                  window.attributes = lp
-                                  showHud("☀️ ${(lp.screenBrightness * 100).toInt()}%")
-                              } else {
-                                  val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                                  if (dY > 0) am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, 0)
-                                  else am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, 0)
-                                  val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                                  showHud("🔊 ${(am.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / max * 100).toInt()}%")
-                              }
+                  scaleDetector = ScaleGestureDetector(
+                      this,
+                      object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                          override fun onScale(detector: ScaleGestureDetector): Boolean {
+                              renderer.zoom(detector.scaleFactor)
+                              glView.requestRender()
+                              return true
                           }
-                          return true
                       }
-                      override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                          if (!isLocked) { if (playerView.isControllerFullyVisible) playerView.hideController() else playerView.showController() }
-                          return true
-                      }
-                  })
+                  )
 
-                  playerView.setOnTouchListener { _, event ->
-                      if (isLocked) true else {
-                          scaleDetector.onTouchEvent(event)
-                          gestureDetector.onTouchEvent(event)
-                          true 
+                  gestureDetector = GestureDetector(
+                      this,
+                      object : GestureDetector.SimpleOnGestureListener() {
+                          override fun onDown(e: MotionEvent): Boolean = true
+
+                          override fun onScroll(
+                              e1: MotionEvent?,
+                              e2: MotionEvent,
+                              distanceX: Float,
+                              distanceY: Float
+                          ): Boolean {
+                              // Ignore drags while a pinch is in progress.
+                              if (scaleDetector.isInProgress) return false
+                              renderer.orbit(distanceX, distanceY, glView.height)
+                              glView.requestRender()
+                              return true
+                          }
+
+                          override fun onDoubleTap(e: MotionEvent): Boolean {
+                              renderer.reset()
+                              glView.requestRender()
+                              return true
+                          }
+                      }
+                  )
+
+                  glView.setOnTouchListener { _, ev ->
+                      scaleDetector.onTouchEvent(ev)
+                      gestureDetector.onTouchEvent(ev)
+                      true
+                  }
+
+                  // Decode the six faces off the UI thread, then hand them to the GL thread on the next frame.
+                  worker.execute {
+                      try {
+                          val faces: Array<Bitmap> = PancoContainer.readFaces(File(path), Bitmap.Config.RGB_565)
+                          runOnUiThread {
+                              loading.visibility = View.GONE
+                              renderer.setFaces(faces)
+                              glView.requestRender()
+                          }
+                      } catch (e: Exception) {
+                          runOnUiThread {
+                              Toast.makeText(this, R.string.error_open, Toast.LENGTH_LONG).show()
+                              finish()
+                          }
                       }
                   }
               }
 
-              private fun showHud(t: String) {
-                  hudText.text = t; hudLayout.visibility = View.VISIBLE
-                  hideHudHandler.removeCallbacks(hideHudRunnable)
-                  hideHudHandler.postDelayed(hideHudRunnable, 1500)
+              override fun onResume() {
+                  super.onResume()
+                  glView.onResume()
               }
 
-              private fun applyAudioBoost(p: Int) {
-                  if (player?.audioSessionId == C.AUDIO_SESSION_ID_UNSET) return
-                  loudnessEnhancer = loudnessEnhancer ?: LoudnessEnhancer(player!!.audioSessionId)
-                  if (p > 100) { loudnessEnhancer?.setTargetGain((p - 100) * 15); loudnessEnhancer?.enabled = true }
-                  else loudnessEnhancer?.enabled = false
+              override fun onPause() {
+                  glView.onPause()
+                  super.onPause()
               }
 
-              private fun initPlayer() {
-                  if (videoUriStr == null) return
-                  player = ExoPlayer.Builder(this).build().apply {
-                      playerView.player = this
-                      setMediaItem(MediaItem.fromUri(Uri.parse(videoUriStr)))
-                      val pos = getSharedPreferences("Prefs", MODE_PRIVATE).getLong(videoUriStr, 0L)
-                      if (pos > 0) seekTo(pos)
-                      prepare(); playWhenReady = true
-                  }
-              }
-
-              override fun onStop() {
-                  super.onStop()
-                  player?.let { p ->
-                      getSharedPreferences("Prefs", MODE_PRIVATE).edit().putLong(videoUriStr, p.currentPosition).apply()
-                      p.release()
-                  }
-                  loudnessEnhancer?.release(); player = null
+              override fun onDestroy() {
+                  worker.shutdownNow()
+                  super.onDestroy()
               }
           }
           EOF
 
-      - name: Build Debug APK
-        run: gradle :app:assembleDebug --no-daemon
+          cat > $SRC/CubemapRenderer.kt <<'EOF'
+          package com.zeeshan.cameraapp
 
-      - name: Upload APK Artifact
+          import android.graphics.Bitmap
+          import android.opengl.GLES20
+          import android.opengl.GLSurfaceView
+          import android.opengl.GLUtils
+          import java.nio.ByteBuffer
+          import java.nio.ByteOrder
+          import java.nio.FloatBuffer
+          import javax.microedition.khronos.egl.EGLConfig
+          import javax.microedition.khronos.opengles.GL10
+          import kotlin.math.cos
+          import kotlin.math.sin
+          import kotlin.math.tan
+
+          /**
+           * OpenGL ES 2.0 renderer for the cube.
+           *
+           * The camera sits at the centre of the cube. Each screen pixel becomes a view ray, which is
+           * rotated by the orbit state and used to sample a samplerCube. No geometry is needed beyond
+           * one fullscreen quad, which keeps GPU and memory cost low on the Galaxy A12.
+           */
+          class CubemapRenderer : GLSurfaceView.Renderer {
+
+              companion object {
+                  const val DEFAULT_FOV = 70f
+                  const val MIN_FOV = 25f
+                  const val MAX_FOV = 90f
+                  const val MAX_PITCH = 1.45f // just under 90° to avoid gimbal flip
+
+                  private const val VERTEX_SHADER = """
+                      attribute vec2 aPos;
+                      uniform mat3 uRot;
+                      uniform vec2 uTanHalf;
+                      varying vec3 vDir;
+                      void main() {
+                          vDir = uRot * vec3(aPos.x * uTanHalf.x, aPos.y * uTanHalf.y, -1.0);
+                          gl_Position = vec4(aPos, 0.0, 1.0);
+                      }
+                  """
+
+                  private const val FRAGMENT_SHADER = """
+                      precision mediump float;
+                      uniform samplerCube uCube;
+                      varying vec3 vDir;
+                      void main() {
+                          gl_FragColor = textureCube(uCube, normalize(vDir));
+                      }
+                  """
+              }
+
+              /** Faces waiting to be uploaded on the GL thread. Written by the UI thread. */
+              @Volatile private var pendingFaces: Array<Bitmap>? = null
+
+              // Orbit state. Written by the UI thread and read by the GL thread.
+              @Volatile var yaw = 0f
+              @Volatile var pitch = 0f
+              @Volatile var fovY = DEFAULT_FOV
+
+              private var program = 0
+              private var cubeTex = 0
+              private var aPos = 0
+              private var uRot = 0
+              private var uTanHalf = 0
+              private var uCube = 0
+              private var aspect = 1f
+              private var hasFaces = false
+
+              private val quad: FloatBuffer = ByteBuffer
+                  .allocateDirect(8 * 4)
+                  .order(ByteOrder.nativeOrder())
+                  .asFloatBuffer()
+                  .apply {
+                      put(floatArrayOf(-1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f))
+                      position(0)
+                  }
+
+              /** OpenGL cube-map targets in the same order as [PancoContainer.FACE_NAMES]. */
+              private val faceTargets = intArrayOf(
+                  GLES20.GL_TEXTURE_CUBE_MAP_POSITIVE_X,
+                  GLES20.GL_TEXTURE_CUBE_MAP_NEGATIVE_X,
+                  GLES20.GL_TEXTURE_CUBE_MAP_POSITIVE_Y,
+                  GLES20.GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,
+                  GLES20.GL_TEXTURE_CUBE_MAP_POSITIVE_Z,
+                  GLES20.GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
+              )
+
+              // ------------------------------------------------------------------
+              // Called from the UI thread
+              // ------------------------------------------------------------------
+
+              fun setFaces(faces: Array<Bitmap>) {
+                  pendingFaces = faces
+              }
+
+              /**
+               * Rotates the view from a drag. [distX] and [distY] are pixel distances from the gesture.
+               * Radians per pixel scales with the field of view, so the drag feels like it follows the finger.
+               */
+              fun orbit(distX: Float, distY: Float, viewHeightPx: Int) {
+                  val k = Math.toRadians(fovY.toDouble()).toFloat() / viewHeightPx.coerceAtLeast(1)
+                  yaw += distX * k
+                  pitch = (pitch - distY * k).coerceIn(-MAX_PITCH, MAX_PITCH)
+              }
+
+              /** [scaleFactor] above 1 means pinch-out, which zooms in by narrowing the field of view. */
+              fun zoom(scaleFactor: Float) {
+                  fovY = (fovY / scaleFactor).coerceIn(MIN_FOV, MAX_FOV)
+              }
+
+              fun reset() {
+                  yaw = 0f
+                  pitch = 0f
+                  fovY = DEFAULT_FOV
+              }
+
+              // ------------------------------------------------------------------
+              // GL thread
+              // ------------------------------------------------------------------
+
+              override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
+                  GLES20.glClearColor(0f, 0f, 0f, 1f)
+                  program = linkProgram(VERTEX_SHADER, FRAGMENT_SHADER)
+                  aPos = GLES20.glGetAttribLocation(program, "aPos")
+                  uRot = GLES20.glGetUniformLocation(program, "uRot")
+                  uTanHalf = GLES20.glGetUniformLocation(program, "uTanHalf")
+                  uCube = GLES20.glGetUniformLocation(program, "uCube")
+
+                  val tex = IntArray(1)
+                  GLES20.glGenTextures(1, tex, 0)
+                  cubeTex = tex[0]
+                  GLES20.glBindTexture(GLES20.GL_TEXTURE_CUBE_MAP, cubeTex)
+                  GLES20.glTexParameteri(GLES20.GL_TEXTURE_CUBE_MAP, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+                  GLES20.glTexParameteri(GLES20.GL_TEXTURE_CUBE_MAP, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+                  GLES20.glTexParameteri(GLES20.GL_TEXTURE_CUBE_MAP, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
+                  GLES20.glTexParameteri(GLES20.GL_TEXTURE_CUBE_MAP, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+              }
+
+              override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
+                  GLES20.glViewport(0, 0, width, height)
+                  aspect = width.toFloat() / height.coerceAtLeast(1)
+              }
+
+              override fun onDrawFrame(gl: GL10?) {
+                  val faces = pendingFaces
+                  if (faces != null) {
+                      pendingFaces = null
+                      uploadFaces(faces)
+                  }
+
+                  GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+                  if (!hasFaces) return
+
+                  GLES20.glUseProgram(program)
+                  GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+                  GLES20.glBindTexture(GLES20.GL_TEXTURE_CUBE_MAP, cubeTex)
+                  GLES20.glUniform1i(uCube, 0)
+                  GLES20.glUniformMatrix3fv(uRot, 1, false, rotationMatrix(yaw, pitch), 0)
+
+                  val tanY = tan(Math.toRadians(fovY.toDouble() / 2.0)).toFloat()
+                  GLES20.glUniform2f(uTanHalf, tanY * aspect, tanY)
+
+                  GLES20.glEnableVertexAttribArray(aPos)
+                  GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, quad)
+                  GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
+                  GLES20.glDisableVertexAttribArray(aPos)
+              }
+
+              /** Uploads the six faces to the cube map, then frees the CPU-side bitmaps. */
+              private fun uploadFaces(faces: Array<Bitmap>) {
+                  GLES20.glBindTexture(GLES20.GL_TEXTURE_CUBE_MAP, cubeTex)
+                  for (i in faceTargets.indices) {
+                      GLUtils.texImage2D(faceTargets[i], 0, faces[i], 0)
+                  }
+                  faces.forEach { it.recycle() }
+                  hasFaces = true
+              }
+
+              /**
+               * Rotation matrix R = Ry(yaw) * Rx(pitch), returned in column-major order for GL.
+               * With yaw = pitch = 0 the view looks down -Z, which is the "front" face.
+               */
+              private fun rotationMatrix(yaw: Float, pitch: Float): FloatArray {
+                  val cy = cos(yaw)
+                  val sy = sin(yaw)
+                  val cp = cos(pitch)
+                  val sp = sin(pitch)
+                  return floatArrayOf(
+                      cy, 0f, -sy,           // column 0
+                      sy * sp, cp, cy * sp,  // column 1
+                      sy * cp, -sp, cy * cp  // column 2
+                  )
+              }
+
+              private fun linkProgram(vsSrc: String, fsSrc: String): Int {
+                  val vs = compileShader(GLES20.GL_VERTEX_SHADER, vsSrc)
+                  val fs = compileShader(GLES20.GL_FRAGMENT_SHADER, fsSrc)
+                  val prog = GLES20.glCreateProgram()
+                  GLES20.glAttachShader(prog, vs)
+                  GLES20.glAttachShader(prog, fs)
+                  GLES20.glLinkProgram(prog)
+                  val status = IntArray(1)
+                  GLES20.glGetProgramiv(prog, GLES20.GL_LINK_STATUS, status, 0)
+                  check(status[0] != 0) { "Program link failed: ${GLES20.glGetProgramInfoLog(prog)}" }
+                  GLES20.glDeleteShader(vs)
+                  GLES20.glDeleteShader(fs)
+                  return prog
+              }
+
+              private fun compileShader(type: Int, src: String): Int {
+                  val shader = GLES20.glCreateShader(type)
+                  GLES20.glShaderSource(shader, src)
+                  GLES20.glCompileShader(shader)
+                  val status = IntArray(1)
+                  GLES20.glGetShaderiv(shader, GLES20.GL_COMPILE_STATUS, status, 0)
+                  check(status[0] != 0) { "Shader compile failed: ${GLES20.glGetShaderInfoLog(shader)}" }
+                  return shader
+              }
+          }
+          EOF
+
+      - name: Verify generated project
+        run: |
+          set -euo pipefail
+          find . -path ./.git -prune -o -type f \( -name "*.gradle" -o -name "*.kt" -o -name "*.xml" -o -name "*.properties" \) -print | sort
+          test -f app/src/main/java/com/zeeshan/cameraapp/MainActivity.kt
+          test -f app/src/main/AndroidManifest.xml
+
+      # ------------------------------------------------------------------
+      # Step 4: Compile and package
+      # ------------------------------------------------------------------
+      - name: Build debug APK
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Upload app-debug.apk artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Zeeshan-Vedio-Pyle-Pro-APK
+          name: app-debug.apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
